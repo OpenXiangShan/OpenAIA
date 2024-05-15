@@ -87,9 +87,11 @@ begin
             fifo_wdata = {FIFO_DATA_WIDTH{1'b0}};
         else begin
             fifo_wdata[NR_SRC_WIDTH-1:0] = reg_wdata[NR_SRC_WIDTH-1:0];
-            fifo_wdata[(NR_SRC_WIDTH + INTP_FILE_WIDTH -1):NR_SRC_WIDTH] = reg_waddr[SFILE_ADDR_WIDTH] ? 
+         // fifo_wdata[(NR_SRC_WIDTH + INTP_FILE_WIDTH -1):NR_SRC_WIDTH] = reg_waddr[SFILE_ADDR_WIDTH] ? 
+            fifo_wdata[(NR_SRC_WIDTH + INTP_FILE_WIDTH -1):NR_SRC_WIDTH] = reg_waddr[21] ? 
                                          (reg_waddr[(SINTP_FILE_WIDTH+11):12] + {{(SINTP_FILE_WIDTH-1){1'b0}},1'b1}) : {INTP_FILE_WIDTH{1'b0}}; //m : index is 0. s and vs are 1~
-            fifo_wdata[(FIFO_DATA_WIDTH-1):(FIFO_DATA_WIDTH-NR_HARTS_WIDTH)] = (NR_HARTS == 1'b1) ? 1'b0 : (reg_waddr[(SFILE_ADDR_WIDTH-1) : (SFILE_ADDR_WIDTH -NR_HARTS_WIDTH)]);
+            fifo_wdata[(FIFO_DATA_WIDTH-1):(FIFO_DATA_WIDTH-NR_HARTS_WIDTH)] = (NR_HARTS == 1'b1) ? 1'b0 : (reg_waddr[21] ? 
+                                         (reg_waddr[(SFILE_ADDR_WIDTH-1) : (SFILE_ADDR_WIDTH -NR_HARTS_WIDTH)]) : reg_waddr[(NR_HARTS_WIDTH+11):12]);
         end
 end
 assign fifo_rd_tmp1     =  ~fifo_empty;
@@ -121,7 +123,8 @@ always @(*)
 begin
         if (|reg_waddr[11:0]) // only 0x0,is illegal inside 4KB. 0x4 not supported.
             addr_is_illegal = 1'b1; 
-        else if (reg_waddr[SFILE_ADDR_WIDTH])begin // s file bit[21]=1,it is sfile addr space.
+     // else if (reg_waddr[SFILE_ADDR_WIDTH])begin // s file bit[21]=1,it is sfile addr space.
+        else if (reg_waddr[21])begin // s file bit[21]=1,it is sfile addr space.
             if (reg_waddr[11+SINTP_FILE_WIDTH:12] > NR_INTP_FILES -2) // 14:12. 0~(7-2) is valid
                 addr_is_illegal = 1'b1;
             else

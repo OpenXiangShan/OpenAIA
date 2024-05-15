@@ -45,11 +45,11 @@ localparam EIE63_OFF                                = 12'hFF;
 //temp parameter used inside
 localparam MUX_NR_REG = ((XLEN == 32) ? NR_REG : NR_REG*2);  //diff the XLEN,to decide whether csr_addr's scope is in the required range..
 localparam OFFSET_WIDTH = (XLEN == 32) ? 6 : 5; //only even addr of both eip and eie is used when xlen is 64.
-localparam CURR_ADDR_WIDTH = (INTP_FILE_WIDTH + NR_REG_WIDTH > OFFSET_WIDTH) ? (INTP_FILE_WIDTH + NR_REG_WIDTH+1) : OFFSET_WIDTH + 1;
+localparam CURR_ADDR_WIDTH = ((INTP_FILE_WIDTH + NR_REG_WIDTH) > OFFSET_WIDTH) ? (INTP_FILE_WIDTH + NR_REG_WIDTH+1) : OFFSET_WIDTH + 1;
 
 /** Interrupt files registers */
 reg         [NR_INTP_FILES-1:0]                     eidelivery                          ;// NR_INTP_FILES altogether, 1bit each file.
-reg         [XLEN-1:0]                              eithreshold[0:NR_INTP_FILES-1]      ;// XLEN bit each file
+reg         [XLEN-1:0]                              eithreshold[0:(NR_INTP_FILES-1)]    ;// XLEN bit each file
 reg         [XLEN-1:0]                              eie[0:((NR_INTP_FILES*NR_REG)-1)]   ;
 reg                                                 csr_wr_illegal                      ;
 reg                                                 csr_rd_illegal                      ;
@@ -218,35 +218,6 @@ assign xtopei_4         = xtopei[4    ];
 assign xtopei_5         = xtopei[5    ];
 assign xtopei_6         = xtopei[6    ];
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // 
 integer s,t;
 always @(posedge clk or negedge rstn)
@@ -319,11 +290,11 @@ begin
     end
     else begin
         csr_wr_illegal <= 1'b0;
-        eidelivery          <=  eidelivery  ; 
-        eithreshold         <=  eithreshold ; 
-        eip_sw              <=  eip_sw      ; 
+      //eidelivery          <=  eidelivery  ; 
+      //eithreshold         <=  eithreshold ; 
+      //eip_sw              <=  eip_sw      ; 
         eip_sw_wr           <=  {{NR_INTP_FILES * NR_REG}{1'b0}}        ; 
-        eie                 <=  eie         ; 
+      //eie                 <=  eie         ; 
     end
 end
 always @(posedge clk or negedge rstn)

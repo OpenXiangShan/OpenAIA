@@ -17,7 +17,7 @@ localparam MSI_INFO_WIDTH    = NR_HARTS_WIDTH + INTP_FILE_WIDTH + NR_SRC_WIDTH  
 (
 //  crg
 input                                       csr_clk        ,    
-input                                       csr_rstn       ,  
+input                                       csr_rstn       ,  //active high. port name not changed,to be no effects on integration 2024.05.10
 //                                                         ,
 input       [MSI_INFO_WIDTH-1:0]            i_msi_info     , 
 input                                       i_msi_info_vld ,   // m,s,5vs,4harts.0-3:hart0-hart3 m file. 4-9:hart0 s+vs file.
@@ -52,10 +52,13 @@ wire        [XLEN-1:0]                              eip_final[0:((NR_INTP_FILES*
 wire        [XLEN-1:0]                              eip_sw[0:((NR_INTP_FILES*NR_REG)-1)]    ;
 wire        [((NR_INTP_FILES*NR_REG)-1) :0 ]        eip_sw_wr                               ;
 wire        [31:0]                                  xtopei[0:NR_INTP_FILES-1]               ;
+wire                                                csr_rstn_low                            ;
 //wire        [31:0]                                  xtopei_out[0:2]                         ;
 assign o_mtopei        = xtopei[0]      ;
 assign o_stopei        = xtopei[1]      ;
 assign o_vstopei       = xtopei[i_csr_vgein +1]      ;
+//fix issue about reset from core,which is active high. 2024.05.10.
+assign csr_rstn_low    = ~csr_rstn;
 
 imsic_csr_reg #(
 .NR_INTP_FILES    (NR_INTP_FILES    ),  
@@ -67,7 +70,7 @@ imsic_csr_reg #(
 u_imsic_csr_reg
 (
 .clk                           (csr_clk                                        ),
-.rstn                          (csr_rstn                                       ), 
+.rstn                          (csr_rstn_low                                   ), 
 .csr_addr                      (csr_addr[11    :0]                             ),
 .csr_rd                        (csr_rd                                         ),
 .intp_file_sel                 (intp_file_sel[INTP_FILE_WIDTH-1:0]             ),
@@ -102,7 +105,7 @@ imsic_csr_gate #(
 u_imsic_csr_gate
 (
 .clk                          (csr_clk                                                  ),
-.rstn                         (csr_rstn                                                 ),
+.rstn                         (csr_rstn_low                                             ),
 .hart_id                      (hart_id[NR_HARTS_WIDTH-1:0]                              ),
 .i_msi_info                   (i_msi_info[MSI_INFO_WIDTH-1:0]                           ),
 .i_msi_info_vld               (i_msi_info_vld                                           ),

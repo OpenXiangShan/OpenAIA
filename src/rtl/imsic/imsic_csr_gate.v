@@ -58,7 +58,7 @@ reg                                         msi_vld_sync_1dly   ;  // synchroniz
 wire                                        msi_vld_sync_ris    ;  // synchronize with the current hart cpu clk.
 reg                                         msi_vld_sync_ris_1dly; // synchronize with the current hart cpu clk.
 reg        [NR_INTP_FILES-1:0]              setipnum_vld        ;  // one cycle after msi_vld_sync 
-reg        [NR_SRC_WIDTH-1:0]               setipnum            ;
+wire       [NR_SRC_WIDTH-1:0]               setipnum            ;
 wire       [NR_INTP_FILES-1:0]              intp_file_curr      ;  
 reg        [XLEN-1:0]                       eip[0:((NR_INTP_FILES*NR_REG)-1)];
 wire                                        setipnum_vld_sync_ris;  // synchronize with the current hart cpu clk.
@@ -127,7 +127,7 @@ always @(*) begin
             csr_claim       = i_csr_claim[1];
         end
         else begin
-            intp_file_sel   = {{INTP_FILE_WIDTH}{1'b0}};
+            intp_file_sel   = {INTP_FILE_WIDTH{1'b0}};
             priv_is_illegal = 1'b1;  //report illegal in u mode 
             csr_claim       = 1'b0;
         end
@@ -139,7 +139,7 @@ always @(*) begin
         csr_claim       = i_csr_claim[2];
     end
     else begin
-        intp_file_sel   = {{INTP_FILE_WIDTH}{1'b0}};
+        intp_file_sel   = {INTP_FILE_WIDTH{1'b0}};
         priv_is_illegal = 1'b1;//report illegal in u mode 
         csr_claim       = 1'b0;
     end
@@ -191,7 +191,7 @@ begin
     end
     /** If a priv lvl is claiming the intp, unpend the intp */
     else if (csr_claim)
-        eip_final[curr_xtopei_h_add][curr_xtopei_l] = 1'b0;
+        eip_final[curr_xtopei_h_add][curr_xtopei_l] <= 1'b0;
     else begin
     /** For each priv lvl evaluate if some device triggered an interrupt, and make this interrupt pending */
         for (i = 0; i < NR_INTP_FILES; i++) begin
@@ -201,7 +201,7 @@ begin
             else begin
                 for (k = 0; k < NR_REG; k++) begin
                     if (eip_sw_wr[i*NR_REG +k] == 1'b1)begin
-                        eip_final[i*NR_REG +k] = eip_sw[i*NR_REG+k];
+                        eip_final[i*NR_REG +k] <= eip_sw[i*NR_REG+k];
                     end
                 end
             end 
