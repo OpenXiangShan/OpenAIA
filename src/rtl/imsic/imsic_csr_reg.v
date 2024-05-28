@@ -12,15 +12,16 @@ parameter INTP_FILE_WIDTH       = 1  //max is $clog2(65) =7bit.
 //  crg
 input                                               clk	                                    ,
 input                                               rstn                                    , 
-//imsic_irt_ctrl
+//imsic_csr_gate 
 input       [11    :0]                              csr_addr  	                            ,
 input                                               csr_rd                                  ,
 input       [INTP_FILE_WIDTH-1:0]                   intp_file_sel                           ,
 input                                               priv_is_illegal                         ,
-input       [XLEN-1:0]                              eip_final [0:((NR_INTP_FILES*NR_REG)-1)],
-output reg  [XLEN-1:0]                              eip_sw [0:((NR_INTP_FILES*NR_REG)-1)]   ,
+input       [XLEN-1:0]                              eip_final[((NR_INTP_FILES*NR_REG)-1):0] ,
+input                                               vgein_legal                             ,
+output reg  [XLEN-1:0]                              eip_sw[((NR_INTP_FILES*NR_REG)-1):0]    ,
 output reg  [((NR_INTP_FILES*NR_REG)-1) :0 ]        eip_sw_wr                               ,
-output reg  [31:0]                                  xtopei[0:NR_INTP_FILES-1]               ,
+output reg  [31:0]                                  xtopei[NR_INTP_FILES-1:0]               ,
 //top
 input                                               i_csr_wdata_vld                         ,    
 input                                               i_csr_v	                                ,
@@ -30,7 +31,6 @@ output reg                                          o_csr_rdata_vld	            
 output reg  [XLEN-1:0]                              o_csr_rdata	                            ,
 output reg                                          o_csr_illegal	                        ,
 output wire [2:0]                                   o_irq	                                 
-//output reg  [31:0]                                  o_xtopei[0:2]	     
 );
 
 // csr addr allocate accroding to the riscv aia spec.
@@ -45,12 +45,12 @@ localparam EIE63_OFF                                = 12'hFF;
 //temp parameter used inside
 localparam MUX_NR_REG = ((XLEN == 32) ? NR_REG : NR_REG*2);  //diff the XLEN,to decide whether csr_addr's scope is in the required range..
 localparam OFFSET_WIDTH = (XLEN == 32) ? 6 : 5; //only even addr of both eip and eie is used when xlen is 64.
-localparam CURR_ADDR_WIDTH = ((INTP_FILE_WIDTH + NR_REG_WIDTH) > OFFSET_WIDTH) ? (INTP_FILE_WIDTH + NR_REG_WIDTH+1) : OFFSET_WIDTH + 1;
+localparam CURR_ADDR_WIDTH = ((INTP_FILE_WIDTH + NR_REG_WIDTH) > OFFSET_WIDTH) ? (INTP_FILE_WIDTH + NR_REG_WIDTH+1) : (OFFSET_WIDTH + 1);
 
 /** Interrupt files registers */
 reg         [NR_INTP_FILES-1:0]                     eidelivery                          ;// NR_INTP_FILES altogether, 1bit each file.
-reg         [XLEN-1:0]                              eithreshold[0:(NR_INTP_FILES-1)]    ;// XLEN bit each file
-reg         [XLEN-1:0]                              eie[0:((NR_INTP_FILES*NR_REG)-1)]   ;
+reg         [XLEN-1:0]                              eithreshold[(NR_INTP_FILES-1):0]    ;// XLEN bit each file
+reg         [XLEN-1:0]                              eie[((NR_INTP_FILES*NR_REG)-1):0]   ;
 reg                                                 csr_wr_illegal                      ;
 reg                                                 csr_rd_illegal                      ;
 reg         [NR_INTP_FILES-1:0]                     irq_min_st                          ;// NR_INTP_FILES altogether, 1bit each file.
@@ -59,9 +59,10 @@ reg         [NR_INTP_FILES-1:0]                     irq_out                     
 wire        [INTP_FILE_WIDTH + NR_REG_WIDTH -1:0]   curr_intf_base_addr                 ;
 wire        [CURR_ADDR_WIDTH-1 :0]                  curr_intf_addr                      ;
 wire        [OFFSET_WIDTH   -1 :0]                  mux_csr_addr                        ;
+wire                                                irq_vs_out                          ;
 //some temp signals for recognize on illegal access when XLEN is 64.
-assign curr_intf_base_addr                          = intp_file_sel*NR_REG                ;
-assign mux_csr_addr                                 = (XLEN ==32) ? csr_addr[5:0] : csr_addr[5:1];
+assign curr_intf_base_addr                          = intp_file_sel*NR_REG              ;
+assign mux_csr_addr                                 = (XLEN == 32) ? csr_addr[5:0] : csr_addr[5:1];
 assign curr_intf_addr[CURR_ADDR_WIDTH-1:0]          = curr_intf_base_addr + mux_csr_addr      ; //*64 max is 13bit.
 assign o_csr_illegal    = csr_wr_illegal | csr_rd_illegal;
 // for sim
@@ -319,7 +320,7 @@ begin
                     end
                 end
                 EIDELIVERY_OFF: begin
-                    o_csr_rdata     <= {{31{1'b0}}, eidelivery[intp_file_sel]};
+                    o_csr_rdata     <= {{(XLEN-1){1'b0}}, eidelivery[intp_file_sel]};
                     csr_rd_illegal  <=  1'b0;    
                 end
                 EITHRESHOLD_OFF:begin
@@ -391,8 +392,9 @@ always @(*)begin
                 end
             end
         end
-end   
-assign o_irq[2:0]     = {irq_out[i_csr_vgein+1],irq_out[1:0]}; //select the vgein file for vs.
+end 
+assign irq_vs_out     = vgein_legal ? irq_out[i_csr_vgein+1] : 1'b0;
+assign o_irq[2:0]     = {irq_vs_out,irq_out[1:0]}; //select the vgein file for vs.
 //always @(*)
 //begin
 //    o_xtopei[0]  = xtopei[0];

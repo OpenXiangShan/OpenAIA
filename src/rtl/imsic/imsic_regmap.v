@@ -15,17 +15,23 @@ parameter NR_INTP_FILES      = 7 //>2
 )
 (
 //  crg
-input                                   clk	                            ,
-input                                   rstn	                        , 
+input                                   clk                             ,
+input                                   rstn                            , 
 input                                   fifo_rstn                       , 
+input                                   msi_s_busy                      , 
 // imsic_axi2reg
-output wire                             fifo_wr                         ,
+input                                   m_reg_wr                        ,
+input       [AXI_ADDR_WIDTH-1:0]        m_reg_waddr                     ,
+input       [31:0]                      m_reg_wdata                     ,
+
 output reg                              addr_is_illegal                 ,
-input                                   reg_wr                          ,
-input       [AXI_ADDR_WIDTH-1:0]        reg_waddr                       ,
-input       [31:0]                      reg_wdata                       ,
+output wire                             fifo_wr                         ,
+input                                   s_reg_wr                        ,
+input       [AXI_ADDR_WIDTH-1:0]        s_reg_waddr                     ,
+input       [31:0]                      s_reg_wdata                     ,
+
 output reg  [FIFO_DATA_WIDTH-1:0]       o_msi_info                      ,
-output wire                             o_msi_info_vld		
+output wire                             o_msi_info_vld        
 );
 localparam  SINTP_FILE_WIDTH            = $clog2(NR_INTP_FILES-1); // 3,number of  s files.
 localparam  SFILE_ADDR_WIDTH            = 12+ SINTP_FILE_WIDTH + $clog2(NR_HARTS); //21
@@ -47,6 +53,9 @@ reg                                     fifo_wr_wait                    ;
 wire                                    fifo_rd                         ;
 wire                                    fifo_wr_c1                      ;
 wire                                    fifo_wr_c2                      ;
+wire                                    reg_wr_mux                      ;
+wire        [AXI_ADDR_WIDTH-1:0]        reg_waddr_mux                   ;
+wire        [31:0]                      reg_wdata_mux                   ;
 
 // ================================================================ 
 //  // ========================= code:instance fifo ===============
@@ -67,7 +76,11 @@ generic_fifo_dc_gray #(
 
 // ================================================================ 
 //  // ========================= code: fifo write/read control ====
-assign fifo_wr_c1       = reg_wr & (~fifo_full);
+assign reg_wr_mux       = msi_s_busy ? s_reg_wr    : m_reg_wr;
+assign reg_waddr_mux    = msi_s_busy ? s_reg_waddr : m_reg_waddr;
+assign reg_wdata_mux    = msi_s_busy ? s_reg_wdata : m_reg_wdata;
+
+assign fifo_wr_c1       = reg_wr_mux & (~fifo_full);
 assign fifo_wr_c2       = fifo_wr_wait & (~fifo_full);
 assign fifo_wr          = (fifo_wr_c1 | fifo_wr_c2) & (~addr_is_illegal);
 
@@ -75,7 +88,7 @@ always @(posedge clk or negedge rstn)
 begin
     if (~rstn) 
         fifo_wr_wait <= 1'b0;
-    else if (reg_wr & fifo_full)
+    else if (reg_wr_mux & fifo_full)
         fifo_wr_wait <= 1'b1;
     else if (~fifo_full)
         fifo_wr_wait <= 1'b0;
@@ -86,12 +99,11 @@ begin
         if (~fifo_wr)
             fifo_wdata = {FIFO_DATA_WIDTH{1'b0}};
         else begin
-            fifo_wdata[NR_SRC_WIDTH-1:0] = reg_wdata[NR_SRC_WIDTH-1:0];
-         // fifo_wdata[(NR_SRC_WIDTH + INTP_FILE_WIDTH -1):NR_SRC_WIDTH] = reg_waddr[SFILE_ADDR_WIDTH] ? 
-            fifo_wdata[(NR_SRC_WIDTH + INTP_FILE_WIDTH -1):NR_SRC_WIDTH] = reg_waddr[21] ? 
-                                         (reg_waddr[(SINTP_FILE_WIDTH+11):12] + {{(SINTP_FILE_WIDTH-1){1'b0}},1'b1}) : {INTP_FILE_WIDTH{1'b0}}; //m : index is 0. s and vs are 1~
-            fifo_wdata[(FIFO_DATA_WIDTH-1):(FIFO_DATA_WIDTH-NR_HARTS_WIDTH)] = (NR_HARTS == 1'b1) ? 1'b0 : (reg_waddr[21] ? 
-                                         (reg_waddr[(SFILE_ADDR_WIDTH-1) : (SFILE_ADDR_WIDTH -NR_HARTS_WIDTH)]) : reg_waddr[(NR_HARTS_WIDTH+11):12]);
+            fifo_wdata[NR_SRC_WIDTH-1:0] = reg_wdata_mux[NR_SRC_WIDTH-1:0];
+            fifo_wdata[(NR_SRC_WIDTH + INTP_FILE_WIDTH -1):NR_SRC_WIDTH] = msi_s_busy ? (reg_waddr_mux[(SINTP_FILE_WIDTH+11):12] + {{(SINTP_FILE_WIDTH-1){1'b0}},1'b1})
+                                                                         : {INTP_FILE_WIDTH{1'b0}} ; //m : index is 0. s and vs are 1~
+            fifo_wdata[(FIFO_DATA_WIDTH-1):(FIFO_DATA_WIDTH-NR_HARTS_WIDTH)] = (NR_HARTS == 1'b1) ? 1'b0 : (msi_s_busy ? reg_waddr_mux[(SFILE_ADDR_WIDTH-1) : (SFILE_ADDR_WIDTH -NR_HARTS_WIDTH)]
+                                                                         : reg_waddr_mux[(NR_HARTS_WIDTH+11):12]);
         end
 end
 assign fifo_rd_tmp1     =  ~fifo_empty;
@@ -118,22 +130,19 @@ begin
         fifo_rd_tmp  <= 1'b1;
     else;
 end
-//code about gen setipnum
+//code about addr illegal
 always @(*)
 begin
-        if (|reg_waddr[11:0]) // only 0x0,is illegal inside 4KB. 0x4 not supported.
+        if (|reg_waddr_mux[11:0]) // only 0x0,is illegal inside 4KB. 0x4 not supported.
             addr_is_illegal = 1'b1; 
-     // else if (reg_waddr[SFILE_ADDR_WIDTH])begin // s file bit[21]=1,it is sfile addr space.
-        else if (reg_waddr[21])begin // s file bit[21]=1,it is sfile addr space.
-            if (reg_waddr[11+SINTP_FILE_WIDTH:12] > NR_INTP_FILES -2) // 14:12. 0~(7-2) is valid
+        else if (msi_s_busy) begin
+            if (reg_waddr_mux[11+SINTP_FILE_WIDTH:12] > (NR_INTP_FILES -2)) // 14:12. 0~(7-2) is valid // sfile addr access
                 addr_is_illegal = 1'b1;
             else
                 addr_is_illegal = 1'b0;
         end
-        else if (|reg_waddr[(SFILE_ADDR_WIDTH-1):(12+$clog2(NR_HARTS))]) // bit[21]=0,it is mfile addr space. hartnum-- 20:18,assume nr_harts is 2^x
-                addr_is_illegal = 1'b1;
         else
-                addr_is_illegal = 1'b0;
+            addr_is_illegal = 1'b0;
 end
 //expand the setipnum_we , leave enough time to asynchronize before used in imsic_csr_top. 
 always @(posedge clk or negedge rstn)

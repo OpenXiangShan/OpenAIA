@@ -3,7 +3,7 @@
  * Function: receive active setipnum, and map the interrupt file ,last,delivery the irqs*/
 module imsic_csr_top #(
 parameter NR_INTP_FILES     = 7,    // m,s,5vs,
-parameter NR_HARTS          = 64,    //harts number.
+parameter NR_HARTS          = 1 ,   //harts number,modify from 64 to 1, in 20240528.
 parameter XLEN              = 64,   // 32 for RV31, 63 for RV63
 parameter NR_SRC            = 256,
 parameter EID_VLD_DLY_NUM   = 0, // cycles that seteip_num_vld can be delayed before used. for timing.
@@ -48,15 +48,15 @@ wire        [11    :0]                              csr_addr                    
 wire                                                csr_rd                                  ;
 wire        [INTP_FILE_WIDTH-1:0]                   intp_file_sel                           ;
 wire                                                priv_is_illegal                         ;
-wire        [XLEN-1:0]                              eip_final[0:((NR_INTP_FILES*NR_REG)-1)] ;
-wire        [XLEN-1:0]                              eip_sw[0:((NR_INTP_FILES*NR_REG)-1)]    ;
+wire        [XLEN-1:0]                              eip_final[((NR_INTP_FILES*NR_REG)-1):0] ;
+wire        [XLEN-1:0]                              eip_sw[((NR_INTP_FILES*NR_REG)-1):0]    ;
 wire        [((NR_INTP_FILES*NR_REG)-1) :0 ]        eip_sw_wr                               ;
-wire        [31:0]                                  xtopei[0:NR_INTP_FILES-1]               ;
+wire        [31:0]                                  xtopei[NR_INTP_FILES-1:0]               ;
 wire                                                csr_rstn_low                            ;
-//wire        [31:0]                                  xtopei_out[0:2]                         ;
+wire                                                vgein_legal                             ;
 assign o_mtopei        = xtopei[0]      ;
 assign o_stopei        = xtopei[1]      ;
-assign o_vstopei       = xtopei[i_csr_vgein +1]      ;
+assign o_vstopei       = vgein_legal ? xtopei[i_csr_vgein +1] : 32'h0;
 //fix issue about reset from core,which is active high. 2024.05.10.
 assign csr_rstn_low    = ~csr_rstn;
 
@@ -76,6 +76,7 @@ u_imsic_csr_reg
 .intp_file_sel                 (intp_file_sel[INTP_FILE_WIDTH-1:0]             ),
 .priv_is_illegal               (priv_is_illegal                                ),
 .i_csr_vgein                   (i_csr_vgein[5:0]                               ),
+.vgein_legal                   (vgein_legal                                    ),
 .eip_final                     (eip_final                                      ),
 .eip_sw                        (eip_sw                                         ),
 .eip_sw_wr                     (eip_sw_wr                                      ),
@@ -116,6 +117,7 @@ u_imsic_csr_gate
 .i_csr_vgein                  (i_csr_vgein[5:0]                                         ),
 .i_csr_claim                  (i_csr_claim[2:0]                                         ),
 .xtopei                       (xtopei                                                   ),
+.vgein_legal                  (vgein_legal                                              ),
 .csr_addr                     (csr_addr[11    :0]                                       ),
 .csr_rd                       (csr_rd                                                   ),
 .intp_file_sel                (intp_file_sel[INTP_FILE_WIDTH-1:0]                       ),

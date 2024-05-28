@@ -30,14 +30,15 @@ input       [11    :0]                      i_csr_addr	                         
 input       [5:0]                           i_csr_vgein	                            ,
 input       [2:0]                           i_csr_claim	                            , 
 // imsic_csr_reg
-input       [31:0]                          xtopei[0:NR_INTP_FILES-1] ,
+input       [31:0]                          xtopei[NR_INTP_FILES-1:0]               ,
 output reg  [11    :0]                      csr_addr  	                            ,
 output reg                                  csr_rd                                  ,
 output reg  [INTP_FILE_WIDTH-1:0]           intp_file_sel                           ,
 output reg                                  priv_is_illegal                         ,
-input       [XLEN-1:0]                      eip_sw [0:((NR_INTP_FILES*NR_REG)-1)]   ,
+input       [XLEN-1:0]                      eip_sw[((NR_INTP_FILES*NR_REG)-1):0]    ,
 input       [((NR_INTP_FILES*NR_REG)-1) :0 ]  eip_sw_wr                             ,
-output reg  [XLEN-1:0]                      eip_final [0:((NR_INTP_FILES*NR_REG)-1)]
+output wire                                 vgein_legal                             ,
+output reg  [XLEN-1:0]                      eip_final[((NR_INTP_FILES*NR_REG)-1):0]
 //top
 );
 // parameter used inside
@@ -54,19 +55,20 @@ localparam N                                = EID_VLD_DLY +2; //2: cycles needed
 
 reg         [MSI_INFO_WIDTH-1:0]            msi_info            ;
 wire                                        msi_vld_sync        ;  // synchronize with the current hart cpu clk.
+wire        [NR_HARTS_WIDTH-1:0]            hart_id_mux         ;  // current hart id,0 when NR_HARTS=1
 reg                                         msi_vld_sync_1dly   ;  // synchronize with the current hart cpu clk.
 wire                                        msi_vld_sync_ris    ;  // synchronize with the current hart cpu clk.
 reg                                         msi_vld_sync_ris_1dly; // synchronize with the current hart cpu clk.
 reg        [NR_INTP_FILES-1:0]              setipnum_vld        ;  // one cycle after msi_vld_sync 
 wire       [NR_SRC_WIDTH-1:0]               setipnum            ;
-wire       [NR_INTP_FILES-1:0]              intp_file_curr      ;  
-reg        [XLEN-1:0]                       eip[0:((NR_INTP_FILES*NR_REG)-1)];
+wire       [INTP_FILE_WIDTH-1:0]            intp_file_curr      ;  
 wire                                        setipnum_vld_sync_ris;  // synchronize with the current hart cpu clk.
 wire       [SETIPNUM_H_WIDTH-1:0]           setipnum_h          ;  //              
 wire       [SETIPNUM_L_WIDTH-1:0]           setipnum_l          ;  //              
 wire       [SETIPNUM_H_WIDTH-1:0]           curr_xtopei_h       ;
 wire       [XLEN_WIDTH-1:0]                 curr_xtopei_l       ;
 wire       [RSLT_ADD_WIDTH-1:0]             curr_xtopei_h_add   ;
+wire       [RSLT_ADD_2WIDTH-1:0]            curr_xtopei_hadd_cut;
 reg                                         csr_claim	        ; 
 
 //start:code about synchronize of setipnum_vld
@@ -101,10 +103,11 @@ begin
         msi_info                     <= i_msi_info ;
 end
 assign intp_file_curr   = msi_info[(NR_SRC_WIDTH + INTP_FILE_WIDTH-1):NR_SRC_WIDTH];
+assign hart_id_mux      = (NR_HARTS == 1) ? {NR_HARTS_WIDTH{1'b0}} : hart_id;
 always @(*)
 begin
     setipnum_vld                 = {NR_INTP_FILES{1'b0}};
-    if (msi_vld_sync_ris_1dly & (msi_info[(MSI_INFO_WIDTH-1):(MSI_INFO_WIDTH-NR_HARTS_WIDTH)] == hart_id)) 
+    if (msi_vld_sync_ris_1dly & (msi_info[(MSI_INFO_WIDTH-1):(MSI_INFO_WIDTH-NR_HARTS_WIDTH)] == hart_id_mux)) 
         setipnum_vld[intp_file_curr] = 1'b1;
     else
         setipnum_vld             = {NR_INTP_FILES{1'b0}};
@@ -113,7 +116,7 @@ assign setipnum = msi_info[NR_SRC_WIDTH-1:0];
 /** Interrupt files registers */
 // ======================= map the interrupt file from privilege mode==========================
 
-
+assign vgein_legal = (|i_csr_vgein[5:0]) & (i_csr_vgein[5:0]<= NR_VS_FILES);
 always @(*) begin
     if(i_csr_v == 1'b0)begin
         if (i_csr_priv_lvl[1:0] == 2'b11)begin// m mode
@@ -132,7 +135,7 @@ always @(*) begin
             csr_claim       = 1'b0;
         end
     end
-    else if ((i_csr_priv_lvl[1:0] == 2'b01) && ((|i_csr_vgein[5:0] != 6'd0) && (i_csr_vgein[5:0]<= NR_VS_FILES)))begin //vs mode, and vgein is in the implemented range.
+    else if ((i_csr_priv_lvl[1:0] == 2'b01) & vgein_legal)begin //vs mode, and vgein is in the implemented range.
         
         intp_file_sel   = S_FILE + i_csr_vgein[5:0];
         priv_is_illegal = 1'b0; 
@@ -169,6 +172,7 @@ assign setipnum_l                    = setipnum[SETIPNUM_L_WIDTH-1:0];
 assign curr_xtopei_h                 = xtopei[intp_file_sel][NR_SRC_WIDTH-1:0]>>XLEN_WIDTH;   // bit[10:0] is msi priority,and id. xtopei/32,or xtopei/64,max is 7bits. 11:5
 assign curr_xtopei_l[XLEN_WIDTH-1:0] = xtopei[intp_file_sel][XLEN_WIDTH-1:0];   // xtopei%32,or xtopei%64
 assign curr_xtopei_h_add             = curr_xtopei_h + intp_file_sel*NR_REG;
+assign curr_xtopei_hadd_cut          = curr_xtopei_h_add[RSLT_ADD_2WIDTH-1:0];
 integer i,k;
 //for sim
 /*
@@ -191,7 +195,7 @@ begin
     end
     /** If a priv lvl is claiming the intp, unpend the intp */
     else if (csr_claim)
-        eip_final[curr_xtopei_h_add][curr_xtopei_l] <= 1'b0;
+        eip_final[curr_xtopei_hadd_cut][curr_xtopei_l] <= 1'b0;
     else begin
     /** For each priv lvl evaluate if some device triggered an interrupt, and make this interrupt pending */
         for (i = 0; i < NR_INTP_FILES; i++) begin
