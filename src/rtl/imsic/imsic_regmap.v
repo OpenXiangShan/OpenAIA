@@ -36,6 +36,7 @@ output wire                             o_msi_info_vld
 localparam  SINTP_FILE_WIDTH            = $clog2(NR_INTP_FILES-1); // 3,number of  s files.
 localparam  SFILE_ADDR_WIDTH            = 12+ SINTP_FILE_WIDTH + $clog2(NR_HARTS); //21
 localparam  FIFO_DEPTH_WIDTH            = 3  ; // 2^FIFO_DEPTH_WIDTH,not more than (SETIP_KEEP_CYCLES+3)/2.
+localparam  SETIP_HALF_CNTS             = SETIP_KEEP_CYCLES/2;
 
 reg         [3:0]                       setip_cnt                       ;
 reg                                     fifo_rdata_vld                  ;
@@ -56,6 +57,7 @@ wire                                    fifo_wr_c2                      ;
 wire                                    reg_wr_mux                      ;
 wire        [AXI_ADDR_WIDTH-1:0]        reg_waddr_mux                   ;
 wire        [31:0]                      reg_wdata_mux                   ;
+reg                                     setip_cnt_half_en               ;
 
 // ================================================================ 
 //  // ========================= code:instance fifo ===============
@@ -182,6 +184,16 @@ begin
         setip_cnt_en <= 1'b0;
     else;
 end
-assign o_msi_info_vld = setip_cnt_en;
+always @(posedge clk or negedge rstn)
+begin
+    if (~rstn)    
+        setip_cnt_half_en  <= 1'b0;
+    else if (fifo_rdata_vld)
+        setip_cnt_half_en  <= 1'b1;
+    else if(setip_cnt[3:0] >= SETIP_HALF_CNTS-1)
+        setip_cnt_half_en <= 1'b0;
+    else;
+end
+assign o_msi_info_vld = setip_cnt_half_en;
 
 endmodule

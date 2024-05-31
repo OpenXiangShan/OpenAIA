@@ -57,8 +57,8 @@ reg         [MSI_INFO_WIDTH-1:0]            msi_info            ;
 wire                                        msi_vld_sync        ;  // synchronize with the current hart cpu clk.
 wire        [NR_HARTS_WIDTH-1:0]            hart_id_mux         ;  // current hart id,0 when NR_HARTS=1
 reg                                         msi_vld_sync_1dly   ;  // synchronize with the current hart cpu clk.
-wire                                        msi_vld_sync_ris    ;  // synchronize with the current hart cpu clk.
-reg                                         msi_vld_sync_ris_1dly; // synchronize with the current hart cpu clk.
+wire                                        msi_vld_sync_neg    ;  // synchronize with the current hart cpu clk.
+reg                                         msi_vld_sync_neg_1dly; // synchronize with the current hart cpu clk.
 reg        [NR_INTP_FILES-1:0]              setipnum_vld        ;  // one cycle after msi_vld_sync 
 wire       [NR_SRC_WIDTH-1:0]               setipnum            ;
 wire       [INTP_FILE_WIDTH-1:0]            intp_file_curr      ;  
@@ -87,19 +87,19 @@ always @(posedge clk or negedge rstn)
 begin
     if (~rstn) begin
         msi_vld_sync_1dly        <= 1'b0;
-        msi_vld_sync_ris_1dly    <= 1'b0;
+        msi_vld_sync_neg_1dly    <= 1'b0;
     end
     else begin
         msi_vld_sync_1dly        <= msi_vld_sync;
-        msi_vld_sync_ris_1dly    <= msi_vld_sync_ris;
+        msi_vld_sync_neg_1dly    <= msi_vld_sync_neg;
     end
 end
-assign msi_vld_sync_ris = msi_vld_sync & (~msi_vld_sync_1dly);
+assign msi_vld_sync_neg = msi_vld_sync_1dly & (~msi_vld_sync);
 always @(posedge clk or negedge rstn)
 begin
     if (~rstn)
         msi_info[MSI_INFO_WIDTH-1:0] <= {MSI_INFO_WIDTH{1'b0}};
-    else if (msi_vld_sync_ris)
+    else if (msi_vld_sync_neg)
         msi_info                     <= i_msi_info ;
 end
 assign intp_file_curr   = msi_info[(NR_SRC_WIDTH + INTP_FILE_WIDTH-1):NR_SRC_WIDTH];
@@ -107,7 +107,7 @@ assign hart_id_mux      = (NR_HARTS == 1) ? {NR_HARTS_WIDTH{1'b0}} : hart_id;
 always @(*)
 begin
     setipnum_vld                 = {NR_INTP_FILES{1'b0}};
-    if (msi_vld_sync_ris_1dly & (msi_info[(MSI_INFO_WIDTH-1):(MSI_INFO_WIDTH-NR_HARTS_WIDTH)] == hart_id_mux)) 
+    if (msi_vld_sync_neg_1dly & (msi_info[(MSI_INFO_WIDTH-1):(MSI_INFO_WIDTH-NR_HARTS_WIDTH)] == hart_id_mux)) 
         setipnum_vld[intp_file_curr] = 1'b1;
     else
         setipnum_vld             = {NR_INTP_FILES{1'b0}};
