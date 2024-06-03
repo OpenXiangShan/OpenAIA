@@ -62,7 +62,6 @@ reg                                         msi_vld_sync_neg_1dly; // synchroniz
 reg        [NR_INTP_FILES-1:0]              setipnum_vld        ;  // one cycle after msi_vld_sync 
 wire       [NR_SRC_WIDTH-1:0]               setipnum            ;
 wire       [INTP_FILE_WIDTH-1:0]            intp_file_curr      ;  
-wire                                        setipnum_vld_sync_ris;  // synchronize with the current hart cpu clk.
 wire       [SETIPNUM_H_WIDTH-1:0]           setipnum_h          ;  //              
 wire       [SETIPNUM_L_WIDTH-1:0]           setipnum_l          ;  //              
 wire       [SETIPNUM_H_WIDTH-1:0]           curr_xtopei_h       ;
