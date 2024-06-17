@@ -30,7 +30,7 @@ input       [XLEN-1:0]                              i_csr_wdata	                
 output reg                                          o_csr_rdata_vld	                        ,
 output reg  [XLEN-1:0]                              o_csr_rdata	                            ,
 output reg                                          o_csr_illegal	                        ,
-output wire [2:0]                                   o_irq	                                 
+output reg  [2:0]                                   o_irq	                                 
 );
 
 // csr addr allocate accroding to the riscv aia spec.
@@ -55,6 +55,7 @@ reg                                                 csr_wr_illegal              
 reg                                                 csr_rd_illegal                      ;
 reg         [NR_INTP_FILES-1:0]                     irq_min_st                          ;// NR_INTP_FILES altogether, 1bit each file.
 reg         [NR_INTP_FILES-1:0]                     irq_out                             ;// NR_INTP_FILES altogether, 1bit each file.
+reg         [31:0]                                  xtopei_out[NR_INTP_FILES-1:0]       ;
 
 wire        [INTP_FILE_WIDTH + NR_REG_WIDTH -1:0]   curr_intf_base_addr                 ;
 wire        [CURR_ADDR_WIDTH-1 :0]                  curr_intf_addr                      ;
@@ -371,7 +372,7 @@ begin
         o_csr_rdata_vld <= 1'b0;
 end
 //========== code on the delivery of irqs. =============================
-integer i,j,k;
+integer i,j,k,n;
 /** For each interrupt file look for the highest pending and enable interrupt 
 k - interrupt file number,
 i - reg number,
@@ -379,14 +380,14 @@ j - arrangement of interrupt number in i,
 k*NR_REG - select the current interrupt file */
 always @(*)begin
         for (k = 0; k < NR_INTP_FILES; k=k+1) begin
-            xtopei[k] = 32'h0; 
+            xtopei_out[k] = 32'h0; 
             irq_out[k]= 1'b0; 
-            for (int i = NR_REG-1; i >= 0; i=i-1) begin
-                for (int j = XLEN-1; j >= 0; j=j-1) begin 
+            for (i = NR_REG-1; i >= 0; i=i-1) begin
+                for (j = XLEN-1; j >= 0; j=j-1) begin 
                     if ((eie[(k*NR_REG)+i][j] & eip_final[(k*NR_REG)+i][j]) & 
                         ((eithreshold[k] == 0) | (j < eithreshold[k]))) begin
-                            xtopei[k][10:0]     = XLEN*i+j;  // curr  interrupt priority
-                            xtopei[k][26:16]    = XLEN*i+j;  // curr  interrupt number.
+                            xtopei_out[k][10:0]     = XLEN*i+j;  // curr  interrupt priority
+                            xtopei_out[k][26:16]    = XLEN*i+j;  // curr  interrupt number.
                             irq_out[k]          = eidelivery[k];// If delivery is enable for this intp file, tell the hart 
                     end
                 end
@@ -394,7 +395,21 @@ always @(*)begin
         end
 end 
 assign irq_vs_out     = vgein_legal ? irq_out[i_csr_vgein+1] : 1'b0;
-assign o_irq[2:0]     = {irq_vs_out,irq_out[1:0]}; //select the vgein file for vs.
+always @(posedge clk or negedge rstn)
+begin
+    if (~rstn) begin
+        for (n = 0; n < NR_INTP_FILES; n=n+1) begin
+            xtopei[n]  <= 32'd0;
+            o_irq[n]   <= 1'b0; 
+        end
+    end
+    else begin
+        o_irq[2:0] <= {irq_vs_out,irq_out[1:0]}; //select the vgein file for vs.
+        for (n = 0; n < NR_INTP_FILES; n=n+1) begin
+            xtopei[n]  <= xtopei_out[n];
+        end
+    end
+end
 //always @(*)
 //begin
 //    o_xtopei[0]  = xtopei[0];

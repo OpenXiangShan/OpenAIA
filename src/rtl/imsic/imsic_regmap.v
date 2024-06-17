@@ -35,7 +35,7 @@ output wire                             o_msi_info_vld
 );
 localparam  SINTP_FILE_WIDTH            = $clog2(NR_INTP_FILES-1); // 3,number of  s files.
 localparam  SFILE_ADDR_WIDTH            = 12+ SINTP_FILE_WIDTH + $clog2(NR_HARTS); //21
-localparam  FIFO_DEPTH_WIDTH            = 3  ; // 2^FIFO_DEPTH_WIDTH,not more than (SETIP_KEEP_CYCLES+3)/2.
+localparam  FIFO_DEPTH_WIDTH            = 3  ; // 2^FIFO_DEPTH_WIDTH,not more than (SETIP_KEEP_CYCLES+4)/4. first 4: min delay between fifo_rds, the second 4,the min time to complete one msi transcation.
 localparam  SETIP_HALF_CNTS             = SETIP_KEEP_CYCLES/2;
 
 reg         [3:0]                       setip_cnt                       ;
