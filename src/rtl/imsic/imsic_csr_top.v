@@ -91,7 +91,7 @@ u_imsic_csr_reg
 .o_csr_rdata_vld               (o_csr_rdata_vld                                ),
 .o_csr_rdata                   (o_csr_rdata[XLEN-1:0]                          ),
 .o_csr_illegal                 (o_csr_illegal                                  ),
-.o_irq                         (o_irq[2:0]                                     ) 
+.o_irq                         (o_irq[NR_INTP_FILES-1:0]                       ) 
 //.o_xtopei                      (xtopei_out                                     )
 );
 imsic_csr_gate #(
