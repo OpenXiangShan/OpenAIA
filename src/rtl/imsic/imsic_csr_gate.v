@@ -116,55 +116,57 @@ assign setipnum = msi_info[NR_SRC_WIDTH-1:0];
 // ======================= map the interrupt file from privilege mode==========================
 
 assign vgein_legal = (|i_csr_vgein[5:0]) & (i_csr_vgein[5:0]<= NR_VS_FILES);
-always @(*) begin
+always @(*) begin 
     if(i_csr_v == 1'b0)begin
         if (i_csr_priv_lvl[1:0] == 2'b11)begin// m mode
             intp_file_sel   = M_FILE;
             priv_is_illegal = 1'b0;
-            csr_claim       = i_csr_claim[0];
         end
         else if (i_csr_priv_lvl[1:0] == 2'b01)begin // s mode
             intp_file_sel   = S_FILE;
             priv_is_illegal = 1'b0;
-            csr_claim       = i_csr_claim[1];
         end
         else begin
             intp_file_sel   = {INTP_FILE_WIDTH{1'b0}};
             priv_is_illegal = 1'b1;  //report illegal in u mode 
-            csr_claim       = 1'b0;
         end
     end
     else if ((i_csr_priv_lvl[1:0] == 2'b01) & vgein_legal)begin //vs mode, and vgein is in the implemented range.
         
         intp_file_sel   = S_FILE + i_csr_vgein[5:0];
         priv_is_illegal = 1'b0; 
-        csr_claim       = i_csr_claim[2];
     end
     else begin
         intp_file_sel   = {INTP_FILE_WIDTH{1'b0}};
         priv_is_illegal = 1'b1;//report illegal in u mode 
+    end
+
+end
+
+always @(*) begin
+    if(i_csr_v == 1'b0)begin
+        if (i_csr_priv_lvl[1:0] == 2'b11)begin// m mode
+            csr_claim       = i_csr_claim[0];
+        end
+        else if (i_csr_priv_lvl[1:0] == 2'b01)begin // s mode
+            csr_claim       = i_csr_claim[1];
+        end
+        else begin
+            csr_claim       = 1'b0;
+        end
+    end
+    else if ((i_csr_priv_lvl[1:0] == 2'b01) & vgein_legal)begin //vs mode, and vgein is in the implemented range.
+        csr_claim       = i_csr_claim[2];
+    end
+    else begin
         csr_claim       = 1'b0;
     end
 end
+
 //start:code about csr read enable gen
-always @(posedge clk or negedge rstn)
-begin
-    if (~rstn) begin
-        csr_addr[11    :0] <= 12'h0;
-        csr_rd             <= 1'b0;
-    end
-    else if (i_csr_addr_vld) begin
-        csr_addr   <= i_csr_addr;
-        if(~csr_rd)
-            csr_rd <= 1'b1;
-        else
-            csr_rd <= 1'b0;
-    end
-    else begin
-        csr_addr <= csr_addr;
-        csr_rd   <= 1'b0;
-    end
-end
+assign csr_addr = i_csr_addr;
+assign csr_rd   = i_csr_addr_vld;
+
 //start:code about eip gen
 assign setipnum_h                    = (setipnum >>XLEN_WIDTH); // indicate the arrange in eips array.
 assign setipnum_l                    = setipnum[SETIPNUM_L_WIDTH-1:0];
