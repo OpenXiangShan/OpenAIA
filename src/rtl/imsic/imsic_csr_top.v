@@ -46,8 +46,6 @@ output wire [31:0]                          o_vstopei
 localparam NR_REG                = (NR_SRC%XLEN == 0) ? (NR_SRC/XLEN) : (NR_SRC/XLEN+1); // total number of active eips/eies registers. 
 localparam NR_REG_WIDTH          = $clog2(NR_REG);
 
-wire        [11    :0]                              csr_addr                                ;
-wire                                                csr_rd                                  ;
 wire        [INTP_FILE_WIDTH-1:0]                   intp_file_sel                           ;
 wire                                                priv_is_illegal                         ;
 wire        [XLEN-1:0]                              eip_final[((NR_INTP_FILES*NR_REG)-1):0] ;
@@ -74,8 +72,8 @@ u_imsic_csr_reg
 (
 .clk                           (csr_clk                                        ),
 .rstn                          (csr_rstn_low                                   ), 
-.csr_addr                      (csr_addr[11    :0]                             ),
-.csr_rd                        (csr_rd                                         ),
+.csr_addr                      (i_csr_addr[11    :0]                           ),
+.csr_rd                        (i_csr_addr_vld                                 ),
 .intp_file_sel                 (intp_file_sel[INTP_FILE_WIDTH-1:0]             ),
 .priv_is_illegal               (priv_is_illegal                                ),
 .i_csr_vgein                   (i_csr_vgein[5:0]                               ),
@@ -116,14 +114,10 @@ u_imsic_csr_gate
 .i_msi_info_vld               (i_msi_info_vld                                           ),
 .i_csr_priv_lvl               (i_csr_priv_lvl[1:0]                                      ),
 .i_csr_v                      (i_csr_v                                                  ),
-.i_csr_addr_vld               (i_csr_addr_vld                                           ),
-.i_csr_addr                   (i_csr_addr[11    :0]                                     ),
 .i_csr_vgein                  (i_csr_vgein[5:0]                                         ),
 .i_csr_claim                  (i_csr_claim[2:0]                                         ),
 .xtopei                       (xtopei                                                   ),
 .vgein_legal                  (vgein_legal                                              ),
-.csr_addr                     (csr_addr[11    :0]                                       ),
-.csr_rd                       (csr_rd                                                   ),
 .intp_file_sel                (intp_file_sel[INTP_FILE_WIDTH-1:0]                       ),
 .priv_is_illegal              (priv_is_illegal                                          ),
 .eip_sw                       (eip_sw                                                   ),

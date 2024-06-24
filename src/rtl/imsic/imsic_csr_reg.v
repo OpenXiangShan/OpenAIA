@@ -63,6 +63,7 @@ reg         [NR_SRC_WIDTH-1:0]                      irq_id                      
 wire        [INTP_FILE_WIDTH + NR_REG_WIDTH -1:0]   curr_intf_base_addr                 ;
 wire        [CURR_ADDR_WIDTH-1 :0]                  curr_intf_addr                      ;
 wire        [OFFSET_WIDTH   -1 :0]                  mux_csr_addr                        ;
+wire                                                csr_wdata_vld                       ;
 reg         [XLEN-1:0]                              csr_wdata_mux                       ;
 reg         [XLEN-1:0]                              wdata_mux                           ;
 //some temp signals for recognize on illegal access when XLEN is 64.
@@ -70,162 +71,9 @@ assign curr_intf_base_addr                          = intp_file_sel*NR_REG      
 assign mux_csr_addr                                 = (XLEN == 32) ? csr_addr[5:0] : csr_addr[5:1];
 assign curr_intf_addr[CURR_ADDR_WIDTH-1:0]          = curr_intf_base_addr + mux_csr_addr      ; //*64 max is 13bit.
 assign o_csr_illegal    = csr_wr_illegal | csr_rd_illegal;
-// for sim
-/*
-wire [XLEN-1:0] eip_sw_0;
-wire [XLEN-1:0] eip_sw_1;
-wire [XLEN-1:0] eip_sw_7;
-wire [XLEN-1:0] eip_sw_6;
-wire [XLEN-1:0] eip_sw_4;
-assign eip_sw_7 = eip_sw[7];
-assign eip_sw_6 = eip_sw[6];
-assign eip_sw_1 = eip_sw[1];
-assign eip_sw_0 = eip_sw[0];
-assign eip_sw_4 = eip_sw[4];*/
-wire [XLEN-1:0] eip_final_0;
-wire [XLEN-1:0] eip_final_1;
-wire [XLEN-1:0] eip_final_2;
-wire [XLEN-1:0] eip_final_3;
-wire [XLEN-1:0] eip_final_4;
-wire [XLEN-1:0] eip_final_5;
-wire [XLEN-1:0] eip_final_6;
-wire [XLEN-1:0] eip_final_7;
-wire [XLEN-1:0] eip_final_8;
-wire [XLEN-1:0] eip_final_9;
-wire [XLEN-1:0] eip_final_10;
-wire [XLEN-1:0] eip_final_11;
-wire [XLEN-1:0] eip_final_12;
-wire [XLEN-1:0] eip_final_13;
-wire [XLEN-1:0] eip_final_14;
-wire [XLEN-1:0] eip_final_15;
-wire [XLEN-1:0] eip_final_16;
-wire [XLEN-1:0] eip_final_17;
-wire [XLEN-1:0] eip_final_18;
-wire [XLEN-1:0] eip_final_19;
-wire [XLEN-1:0] eip_final_20;
-wire [XLEN-1:0] eip_final_21;
-wire [XLEN-1:0] eip_final_22;
-wire [XLEN-1:0] eip_final_23;
-wire [XLEN-1:0] eip_final_24;
-wire [XLEN-1:0] eip_final_25;
-wire [XLEN-1:0] eip_final_26;
-wire [XLEN-1:0] eip_final_27;
-wire [XLEN-1:0] eie_final_0;
-wire [XLEN-1:0] eie_final_1;
-wire [XLEN-1:0] eie_final_2;
-wire [XLEN-1:0] eie_final_3;
-wire [XLEN-1:0] eie_final_4;
-wire [XLEN-1:0] eie_final_5;
-wire [XLEN-1:0] eie_final_6;
-wire [XLEN-1:0] eie_final_7;
-wire [XLEN-1:0] eie_final_8;
-wire [XLEN-1:0] eie_final_9;
-wire [XLEN-1:0] eie_final_10;
-wire [XLEN-1:0] eie_final_11;
-wire [XLEN-1:0] eie_final_12;
-wire [XLEN-1:0] eie_final_13;
-wire [XLEN-1:0] eie_final_14;
-wire [XLEN-1:0] eie_final_15;
-wire [XLEN-1:0] eie_final_16;
-wire [XLEN-1:0] eie_final_17;
-wire [XLEN-1:0] eie_final_18;
-wire [XLEN-1:0] eie_final_19;
-wire [XLEN-1:0] eie_final_20;
-wire [XLEN-1:0] eie_final_21;
-wire [XLEN-1:0] eie_final_22;
-wire [XLEN-1:0] eie_final_23;
-wire [XLEN-1:0] eie_final_24;
-wire [XLEN-1:0] eie_final_25;
-wire [XLEN-1:0] eie_final_26;
-wire [XLEN-1:0] eie_final_27;
-wire [XLEN-1:0] eithreshold_0    ;
-wire [XLEN-1:0] eithreshold_1    ;
-wire [XLEN-1:0] eithreshold_2    ;
-wire [XLEN-1:0] eithreshold_3    ;
-wire [XLEN-1:0] eithreshold_4    ;
-wire [XLEN-1:0] eithreshold_5    ;
-wire [XLEN-1:0] eithreshold_6    ;
-wire [31:0] xtopei_0 ;
-wire [31:0] xtopei_1 ;
-wire [31:0] xtopei_2 ;
-wire [31:0] xtopei_3 ;
-wire [31:0] xtopei_4 ;
-wire [31:0] xtopei_5 ;
-wire [31:0] xtopei_6 ;
-
-assign eip_final_0           = eip_final[0      ];               
-assign eip_final_1           = eip_final[1      ];
-assign eip_final_2           = eip_final[2      ];
-assign eip_final_3           = eip_final[3      ];
-assign eip_final_4           = eip_final[4      ];
-assign eip_final_5           = eip_final[5      ];
-assign eip_final_6           = eip_final[6      ];
-assign eip_final_7           = eip_final[7      ];
-assign eip_final_8           = eip_final[8      ];
-assign eip_final_9           = eip_final[9      ];
-assign eip_final_10          = eip_final[10     ];
-assign eip_final_11          = eip_final[11     ];
-assign eip_final_12          = eip_final[12     ];
-assign eip_final_13          = eip_final[13     ];
-assign eip_final_14          = eip_final[14     ];
-assign eip_final_15          = eip_final[15     ];
-assign eip_final_16          = eip_final[16     ];
-assign eip_final_17          = eip_final[17     ];
-assign eip_final_18          = eip_final[18     ];
-assign eip_final_19          = eip_final[19     ];
-assign eip_final_20          = eip_final[20     ];
-assign eip_final_21          = eip_final[21     ];
-assign eip_final_22          = eip_final[22     ];
-assign eip_final_23          = eip_final[23     ];
-assign eip_final_24          = eip_final[24     ];
-assign eip_final_25          = eip_final[25     ];
-assign eip_final_26          = eip_final[26     ];
-assign eip_final_27          = eip_final[27     ];
-assign eie_final_0           = eie[0      ];
-assign eie_final_1           = eie[1      ];
-assign eie_final_2           = eie[2      ];
-assign eie_final_3           = eie[3      ];
-assign eie_final_4           = eie[4      ];
-assign eie_final_5           = eie[5      ];
-assign eie_final_6           = eie[6      ];
-assign eie_final_7           = eie[7      ];
-assign eie_final_8           = eie[8      ];
-assign eie_final_9           = eie[9      ];
-assign eie_final_10          = eie[10     ];
-assign eie_final_11          = eie[11     ];
-assign eie_final_12          = eie[12     ];
-assign eie_final_13          = eie[13     ];
-assign eie_final_14          = eie[14     ];
-assign eie_final_15          = eie[15     ];
-assign eie_final_16          = eie[16     ];
-assign eie_final_17          = eie[17     ];
-assign eie_final_18          = eie[18     ];
-assign eie_final_19          = eie[19     ];
-assign eie_final_20          = eie[20     ];
-assign eie_final_21          = eie[21     ];
-assign eie_final_22          = eie[22     ];
-assign eie_final_23          = eie[23     ];
-assign eie_final_24          = eie[24     ];
-assign eie_final_25          = eie[25     ];
-assign eie_final_26          = eie[26     ];
-assign eie_final_27          = eie[27     ];
-assign eithreshold_0         = eithreshold[0    ];
-assign eithreshold_1         = eithreshold[1    ];
-assign eithreshold_2         = eithreshold[2    ];
-assign eithreshold_3         = eithreshold[3    ];
-assign eithreshold_4         = eithreshold[4    ];
-assign eithreshold_5         = eithreshold[5    ];
-assign eithreshold_6         = eithreshold[6    ];
-assign xtopei_0         = xtopei[0    ];
-assign xtopei_1         = xtopei[1    ];
-assign xtopei_2         = xtopei[2    ];
-assign xtopei_3         = xtopei[3    ];
-assign xtopei_4         = xtopei[4    ];
-assign xtopei_5         = xtopei[5    ];
-assign xtopei_6         = xtopei[6    ];
-
+assign csr_wdata_vld = i_csr_wdata_vld & csr_rd;
 always @(*)begin
-    if (i_csr_wdata_vld) begin
+    if (csr_wdata_vld) begin
         casez (csr_addr) 
             EIDELIVERY_OFF: begin
                 wdata_mux[XLEN-1:0] = eidelivery[intp_file_sel];
@@ -247,7 +95,7 @@ always @(*)begin
         wdata_mux[XLEN-1:0] = i_csr_wdata;
 end
 always @(*)begin
-    if (i_csr_wdata_vld) begin
+    if (csr_wdata_vld) begin
         case(i_csr_wdata_op)
             2'b10: // SET
                 csr_wdata_mux[XLEN-1:0] = i_csr_wdata | wdata_mux;
@@ -277,7 +125,7 @@ begin
         end
     end
     /** IMSIC channel handler for interrupt file CSRs */
-    else if (i_csr_wdata_vld) begin
+    else if (csr_wdata_vld) begin
         if (priv_is_illegal | (i_csr_wdata_op == 2'b00))
             csr_wr_illegal <=  1'b1;    
         else begin

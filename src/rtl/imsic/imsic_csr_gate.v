@@ -25,14 +25,10 @@ input       [MSI_INFO_WIDTH-1:0]            i_msi_info                          
 input                                       i_msi_info_vld	                        ,// m,s,5vs,4harts.0-3:hart0-hart3 m file. 4-9:hart0 s+vs file.
 input       [1:0]                           i_csr_priv_lvl	                        ,
 input                                       i_csr_v	                                ,
-input                                       i_csr_addr_vld	                        ,
-input       [11    :0]                      i_csr_addr	                            ,
 input       [5:0]                           i_csr_vgein	                            ,
 input       [2:0]                           i_csr_claim	                            , 
 // imsic_csr_reg
 input       [31:0]                          xtopei[NR_INTP_FILES-1:0]               ,
-output reg  [11    :0]                      csr_addr  	                            ,
-output reg                                  csr_rd                                  ,
 output reg  [INTP_FILE_WIDTH-1:0]           intp_file_sel                           ,
 output reg                                  priv_is_illegal                         ,
 input       [XLEN-1:0]                      eip_sw[((NR_INTP_FILES*NR_REG)-1):0]    ,
@@ -144,25 +140,6 @@ always @(*) begin
         intp_file_sel   = {INTP_FILE_WIDTH{1'b0}};
         priv_is_illegal = 1'b1;//report illegal in u mode 
         csr_claim       = 1'b0;
-    end
-end
-//start:code about csr read enable gen
-always @(posedge clk or negedge rstn)
-begin
-    if (~rstn) begin
-        csr_addr[11    :0] <= 12'h0;
-        csr_rd             <= 1'b0;
-    end
-    else if (i_csr_addr_vld) begin
-        csr_addr   <= i_csr_addr;
-        if(~csr_rd)
-            csr_rd <= 1'b1;
-        else
-            csr_rd <= 1'b0;
-    end
-    else begin
-        csr_addr <= csr_addr;
-        csr_rd   <= 1'b0;
     end
 end
 //start:code about eip gen
