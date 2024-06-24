@@ -2,7 +2,8 @@
  * author: zhaohong
  * Function: receive active setipnum, and map the interrupt file ,last,delivery the irqs*/
 module imsic_csr_top #(
-parameter NR_INTP_FILES     = 7,    // m,s,5vs,
+parameter GEILEN            = 5,    // m,s,5vs,
+parameter NR_INTP_FILES     = 2+GEILEN,    // m,s,5vs,
 parameter NR_HARTS          = 1 ,   //harts number,modify from 64 to 1, in 20240528.
 parameter XLEN              = 64,   // 32 for RV31, 63 for RV63
 parameter NR_SRC            = 256,
@@ -17,7 +18,7 @@ localparam MSI_INFO_WIDTH    = NR_HARTS_WIDTH + INTP_FILE_WIDTH + NR_SRC_WIDTH  
 (
 //  crg
 input                                       csr_clk        ,    
-input                                       csr_rstn       ,  //active high. port name not changed,to be no effects on integration 2024.05.10
+input                                       csr_rst        ,  //active high. port name not changed,to be no effects on integration 2024.05.10
 //                                                         ,
 input       [MSI_INFO_WIDTH-1:0]            i_msi_info     , 
 input                                       i_msi_info_vld ,   // m,s,5vs,4harts.0-3:hart0-hart3 m file. 4-9:hart0 s+vs file.
@@ -29,11 +30,12 @@ input                                       i_csr_v        ,
 input       [5:0]                           i_csr_vgein    ,    // the value must be in the range 0~NR_INTP_FILES -2.
 input       [2:0]                           i_csr_claim    ,     
 input       [XLEN-1:0]                      i_csr_wdata    ,    
+input       [1:0]                           i_csr_wdata_op ,  //csr type. 01:csrrw,10:csrrs,11:csrrc  
 input                                       i_csr_wdata_vld,    
 output wire                                 o_csr_rdata_vld,    
 output wire [XLEN-1:0]                      o_csr_rdata    ,    
 output wire                                 o_csr_illegal  ,  
-output wire [2:0]                           o_irq          ,  
+output wire [NR_INTP_FILES-1:0]             o_irq          ,  
 output wire [31:0]                          o_mtopei       ,     
 output wire [31:0]                          o_stopei       ,     
 output wire [31:0]                          o_vstopei            
@@ -58,11 +60,12 @@ assign o_mtopei        = xtopei[0]      ;
 assign o_stopei        = xtopei[1]      ;
 assign o_vstopei       = vgein_legal ? xtopei[i_csr_vgein +1] : 32'h0;
 //fix issue about reset from core,which is active high. 2024.05.10.
-assign csr_rstn_low    = ~csr_rstn;
+assign csr_rstn_low    = ~csr_rst ;
 
 imsic_csr_reg #(
 .NR_INTP_FILES    (NR_INTP_FILES    ),  
 .XLEN             (XLEN             ),  
+.NR_SRC_WIDTH     (NR_SRC_WIDTH   ),    
 .NR_REG           (NR_REG           ),  
 .NR_REG_WIDTH     (NR_REG_WIDTH     ),  
 .INTP_FILE_WIDTH  (INTP_FILE_WIDTH  ) 
@@ -83,6 +86,7 @@ u_imsic_csr_reg
 .xtopei                        (xtopei                                         ),
 .i_csr_v                       (i_csr_v                                        ),
 .i_csr_wdata                   (i_csr_wdata[XLEN-1:0]                          ),
+.i_csr_wdata_op                (i_csr_wdata_op[1:0]                            ),
 .i_csr_wdata_vld               (i_csr_wdata_vld                                ),
 .o_csr_rdata_vld               (o_csr_rdata_vld                                ),
 .o_csr_rdata                   (o_csr_rdata[XLEN-1:0]                          ),

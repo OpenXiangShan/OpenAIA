@@ -4,6 +4,7 @@
 module imsic_csr_reg #(
 parameter NR_INTP_FILES         = 7,      // m,s,5vs,
 parameter XLEN                  = 64,     // m,s,5vs,for RV32,32,for RV64,64
+parameter NR_SRC_WIDTH          = 8, //max is 12.
 parameter NR_REG                = 1, // total number of active eips/eies registers. 
 parameter NR_REG_WIDTH          = 1, // total number of active eips/eies registers. 
 parameter INTP_FILE_WIDTH       = 1  //max is $clog2(65) =7bit.
@@ -27,10 +28,11 @@ input                                               i_csr_wdata_vld             
 input                                               i_csr_v	                                ,
 input       [5:0]                                   i_csr_vgein	                            ,// the value must be in the range 0~NR_INTP_FILES -2.
 input       [XLEN-1:0]                              i_csr_wdata	                            ,
+input       [1:0]                                   i_csr_wdata_op ,  //csr type. 01:csrrw,10:csrrs,11:csrrc  
 output reg                                          o_csr_rdata_vld	                        ,
 output reg  [XLEN-1:0]                              o_csr_rdata	                            ,
 output reg                                          o_csr_illegal	                        ,
-output reg  [2:0]                                   o_irq	                                 
+output reg  [NR_INTP_FILES-1:0]                     o_irq	                                 
 );
 
 // csr addr allocate accroding to the riscv aia spec.
@@ -56,11 +58,13 @@ reg                                                 csr_rd_illegal              
 reg         [NR_INTP_FILES-1:0]                     irq_min_st                          ;// NR_INTP_FILES altogether, 1bit each file.
 reg         [NR_INTP_FILES-1:0]                     irq_out                             ;// NR_INTP_FILES altogether, 1bit each file.
 reg         [31:0]                                  xtopei_out[NR_INTP_FILES-1:0]       ;
+reg         [NR_SRC_WIDTH-1:0]                      irq_id                              ;
 
 wire        [INTP_FILE_WIDTH + NR_REG_WIDTH -1:0]   curr_intf_base_addr                 ;
 wire        [CURR_ADDR_WIDTH-1 :0]                  curr_intf_addr                      ;
 wire        [OFFSET_WIDTH   -1 :0]                  mux_csr_addr                        ;
-wire                                                irq_vs_out                          ;
+reg         [XLEN-1:0]                              csr_wdata_mux                       ;
+reg         [XLEN-1:0]                              wdata_mux                           ;
 //some temp signals for recognize on illegal access when XLEN is 64.
 assign curr_intf_base_addr                          = intp_file_sel*NR_REG              ;
 assign mux_csr_addr                                 = (XLEN == 32) ? csr_addr[5:0] : csr_addr[5:1];
@@ -220,6 +224,42 @@ assign xtopei_4         = xtopei[4    ];
 assign xtopei_5         = xtopei[5    ];
 assign xtopei_6         = xtopei[6    ];
 
+always @(*)begin
+    if (i_csr_wdata_vld) begin
+        casez (csr_addr) 
+            EIDELIVERY_OFF: begin
+                wdata_mux[XLEN-1:0] = eidelivery[intp_file_sel];
+            end
+            EITHRESHOLD_OFF:begin
+                wdata_mux[XLEN-1:0] = eithreshold[intp_file_sel];
+            end
+            12'b0000_10??_????:begin
+                wdata_mux[XLEN-1:0] = eip_sw[curr_intf_addr];
+            end
+            12'b0000_11??_????:begin
+                wdata_mux[XLEN-1:0] = eie[curr_intf_addr];
+            end
+            default :
+                wdata_mux[XLEN-1:0] = i_csr_wdata;
+        endcase
+    end
+    else
+        wdata_mux[XLEN-1:0] = i_csr_wdata;
+end
+always @(*)begin
+    if (i_csr_wdata_vld) begin
+        case(i_csr_wdata_op)
+            2'b10: // SET
+                csr_wdata_mux[XLEN-1:0] = i_csr_wdata | wdata_mux;
+            2'b11: // CLR
+                csr_wdata_mux[XLEN-1:0] = (~i_csr_wdata) & wdata_mux ;
+            default : // RW or non-illegal
+                csr_wdata_mux[XLEN-1:0] = i_csr_wdata;
+        endcase
+    end 
+    else
+        csr_wdata_mux[XLEN-1:0] = i_csr_wdata;
+end
 // 
 integer s,t;
 always @(posedge clk or negedge rstn)
@@ -238,7 +278,7 @@ begin
     end
     /** IMSIC channel handler for interrupt file CSRs */
     else if (i_csr_wdata_vld) begin
-        if (priv_is_illegal)
+        if (priv_is_illegal | (i_csr_wdata_op == 2'b00))
             csr_wr_illegal <=  1'b1;    
         else begin
             casez (csr_addr) 
@@ -253,21 +293,21 @@ begin
                     end
                 end
                 EIDELIVERY_OFF: begin
-                    eidelivery[intp_file_sel] <= i_csr_wdata[0];
+                    eidelivery[intp_file_sel] <= csr_wdata_mux[0];
                 end
                 EITHRESHOLD_OFF:begin
-                    eithreshold[intp_file_sel] <= i_csr_wdata[XLEN-1:0];
+                    eithreshold[intp_file_sel] <= csr_wdata_mux[XLEN-1:0];
                 end
                 12'b0000_10??_????:begin
                     if(csr_addr[5:0]< MUX_NR_REG) begin
                         if(XLEN == 32)begin
-                            eip_sw[curr_intf_addr] <= (|curr_intf_addr) ? i_csr_wdata[XLEN-1:0] : {i_csr_wdata[XLEN-1:1],1'b0}; // interrupt 0 is invalid.
+                            eip_sw[curr_intf_addr] <= (|curr_intf_addr) ? csr_wdata_mux[XLEN-1:0] : {csr_wdata_mux[XLEN-1:1],1'b0}; // interrupt 0 is invalid.
                             eip_sw_wr[curr_intf_addr] <= 1'b1;
                         end
                         else if (csr_addr[0] == 1'b1)
                             csr_wr_illegal <= 1'b1;                                       
                         else begin
-                            eip_sw[curr_intf_addr] <= (|csr_addr[5:0]) ? i_csr_wdata[XLEN-1:0] : {i_csr_wdata[XLEN-1:1],1'b0};
+                            eip_sw[curr_intf_addr] <= (|csr_addr[5:0]) ? csr_wdata_mux[XLEN-1:0] : {csr_wdata_mux[XLEN-1:1],1'b0};
                             eip_sw_wr[curr_intf_addr] <= 1'b1;
                         end  
                     end
@@ -277,11 +317,11 @@ begin
                 12'b0000_11??_????:begin
                     if(csr_addr[5:0]< MUX_NR_REG) begin
                         if(XLEN == 32)
-                            eie[curr_intf_addr] <= i_csr_wdata[XLEN-1:0];
+                            eie[curr_intf_addr] <= csr_wdata_mux[XLEN-1:0];
                         else if (csr_addr[0] == 1'b1)
                             csr_wr_illegal <= 1'b1;                                       
                         else 
-                            eie[curr_intf_addr] <= i_csr_wdata[XLEN-1:0];
+                            eie[curr_intf_addr] <= csr_wdata_mux[XLEN-1:0];
                     end
                     else
                         csr_wr_illegal <= 1'b1;                                       
@@ -384,17 +424,17 @@ always @(*)begin
             irq_out[k]= 1'b0; 
             for (i = NR_REG-1; i >= 0; i=i-1) begin
                 for (j = XLEN-1; j >= 0; j=j-1) begin 
+                    irq_id=XLEN*i+j;
                     if ((eie[(k*NR_REG)+i][j] & eip_final[(k*NR_REG)+i][j]) & 
-                        ((eithreshold[k] == 0) | (j < eithreshold[k]))) begin
-                            xtopei_out[k][10:0]     = XLEN*i+j;  // curr  interrupt priority
-                            xtopei_out[k][26:16]    = XLEN*i+j;  // curr  interrupt number.
+                        ((eithreshold[k] == 0) | (irq_id < eithreshold[k]))) begin
+                            xtopei_out[k][10:0]     = {{(11-NR_SRC_WIDTH){1'b0}},irq_id};  // curr  interrupt priority
+                            xtopei_out[k][26:16]    = {{(11-NR_SRC_WIDTH){1'b0}},irq_id};  // curr  interrupt number.
                             irq_out[k]          = eidelivery[k];// If delivery is enable for this intp file, tell the hart 
                     end
                 end
             end
         end
 end 
-assign irq_vs_out     = vgein_legal ? irq_out[i_csr_vgein+1] : 1'b0;
 always @(posedge clk or negedge rstn)
 begin
     if (~rstn) begin
@@ -404,9 +444,9 @@ begin
         end
     end
     else begin
-        o_irq[2:0] <= {irq_vs_out,irq_out[1:0]}; //select the vgein file for vs.
         for (n = 0; n < NR_INTP_FILES; n=n+1) begin
-            xtopei[n]  <= xtopei_out[n];
+            xtopei[n] <= xtopei_out[n];
+            o_irq[n]  <= irq_out[n] ; //select the vgein file for vs.
         end
     end
 end
