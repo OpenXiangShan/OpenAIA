@@ -47,7 +47,7 @@ localparam SETIPNUM_L_WIDTH                 = (NR_SRC_WIDTH > XLEN_WIDTH) ? XLEN
 localparam RSLT_ADD_1WIDTH                  = SETIPNUM_H_WIDTH; 
 localparam RSLT_ADD_2WIDTH                  = INTP_FILE_WIDTH+NR_REG_WIDTH;
 localparam RSLT_ADD_WIDTH                   = (RSLT_ADD_1WIDTH > RSLT_ADD_2WIDTH) ? (RSLT_ADD_1WIDTH +1) : (RSLT_ADD_2WIDTH+1);//get the max width.
-localparam N                                = EID_VLD_DLY +2; //2: cycles needed to sync.
+localparam N                                = EID_VLD_DLY +3; //3: cycles needed to sync.
 
 reg         [MSI_INFO_WIDTH-1:0]            msi_info            ;
 wire                                        msi_vld_sync        ;  // synchronize with the current hart cpu clk.
