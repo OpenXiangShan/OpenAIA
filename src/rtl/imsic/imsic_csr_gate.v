@@ -47,10 +47,11 @@ localparam SETIPNUM_L_WIDTH                 = (NR_SRC_WIDTH > XLEN_WIDTH) ? XLEN
 localparam RSLT_ADD_1WIDTH                  = SETIPNUM_H_WIDTH; 
 localparam RSLT_ADD_2WIDTH                  = INTP_FILE_WIDTH+NR_REG_WIDTH;
 localparam RSLT_ADD_WIDTH                   = (RSLT_ADD_1WIDTH > RSLT_ADD_2WIDTH) ? (RSLT_ADD_1WIDTH +1) : (RSLT_ADD_2WIDTH+1);//get the max width.
-localparam N                                = EID_VLD_DLY +3; //3: cycles needed to sync.
+//localparam N                                = EID_VLD_DLY +3; //3: cycles needed to sync.
 
 reg         [MSI_INFO_WIDTH-1:0]            msi_info            ;
 wire                                        msi_vld_sync        ;  // synchronize with the current hart cpu clk.
+wire                                        msi_vld_sync_tmp    ;  // synchronize with the current hart cpu clk.
 wire        [NR_HARTS_WIDTH-1:0]            hart_id_mux         ;  // current hart id,0 when NR_HARTS=1
 reg                                         msi_vld_sync_1dly   ;  // synchronize with the current hart cpu clk.
 wire                                        msi_vld_sync_neg    ;  // synchronize with the current hart cpu clk.
@@ -67,10 +68,16 @@ wire       [RSLT_ADD_2WIDTH-1:0]            curr_xtopei_hadd_cut;
 reg                                         csr_claim	        ; 
 
 //start:code about synchronize of setipnum_vld
-cmip_dff_sync #(.N(N)) u_cmip_dff_sync
+cmip_dff_sync  u_cmip_dff_sync
 (.clk       (clk                  ),
  .rstn      (rstn                 ),
  .din       (i_msi_info_vld       ),
+ .dout      (msi_vld_sync_tmp    )
+);
+cmip_dff_sync #(.N(EID_VLD_DLY)) u_delay
+(.clk       (clk                  ),
+ .rstn      (rstn                 ),
+ .din       (msi_vld_sync_tmp   ),
  .dout      (msi_vld_sync    )
 );
 
