@@ -23,6 +23,7 @@ input                                       rstn	                               
 input       [NR_HARTS_WIDTH-1:0]            hart_id                                 ,// current hart id,start from 0.
 input       [MSI_INFO_WIDTH-1:0]            i_msi_info                              ,
 input                                       i_msi_info_vld	                        ,// m,s,5vs,4harts.0-3:hart0-hart3 m file. 4-9:hart0 s+vs file.
+input       [11:0]                          i_csr_addr_vld	                        ,
 input       [1:0]                           i_csr_priv_lvl	                        ,
 input                                       i_csr_v	                                ,
 input       [5:0]                           i_csr_vgein	                            ,
@@ -58,6 +59,7 @@ reg                                         msi_vld_sync_neg_1dly; // synchroniz
 reg        [NR_INTP_FILES-1:0]              setipnum_vld        ;  // one cycle after msi_vld_sync 
 wire       [NR_SRC_WIDTH-1:0]               setipnum            ;
 wire       [INTP_FILE_WIDTH-1:0]            intp_file_curr      ;  
+wire       [INTP_FILE_WIDTH-1:0]            claim_sel           ;  
 wire       [SETIPNUM_H_WIDTH-1:0]           setipnum_h          ;  //              
 wire       [SETIPNUM_L_WIDTH-1:0]           setipnum_l          ;  //              
 wire       [SETIPNUM_H_WIDTH-1:0]           curr_xtopei_h       ;
@@ -113,41 +115,44 @@ assign setipnum = msi_info[NR_SRC_WIDTH-1:0];
 
 assign vgein_legal = (|i_csr_vgein[5:0]) & (i_csr_vgein[5:0]<= NR_VS_FILES);
 always @(*) begin
-    if(i_csr_v == 1'b0)begin
-        if (i_csr_priv_lvl[1:0] == 2'b11)begin// m mode
-            intp_file_sel   = M_FILE;
-            priv_is_illegal = 1'b0;
-            csr_claim       = i_csr_claim[0];
+    if(i_csr_addr_vld == 1'b1)begin
+        if(i_csr_v == 1'b0)begin
+            if (i_csr_priv_lvl[1:0] == 2'b11)begin// m mode
+                intp_file_sel   = M_FILE;
+                priv_is_illegal = 1'b0;
+            end
+            else if (i_csr_priv_lvl[1:0] == 2'b01)begin // s mode
+                intp_file_sel   = S_FILE;
+                priv_is_illegal = 1'b0;
+            end
+            else begin
+                intp_file_sel   = {INTP_FILE_WIDTH{1'b0}};
+                priv_is_illegal = 1'b1;  //report illegal in u mode 
+            end
         end
-        else if (i_csr_priv_lvl[1:0] == 2'b01)begin // s mode
-            intp_file_sel   = S_FILE;
-            priv_is_illegal = 1'b0;
-            csr_claim       = i_csr_claim[1];
+        else if ((i_csr_priv_lvl[1:0] == 2'b01) & vgein_legal)begin //vs mode, and vgein is in the implemented range.
+            intp_file_sel   = S_FILE + i_csr_vgein[5:0];
+            priv_is_illegal = 1'b0; 
         end
         else begin
             intp_file_sel   = {INTP_FILE_WIDTH{1'b0}};
-            priv_is_illegal = 1'b1;  //report illegal in u mode 
-            csr_claim       = 1'b0;
+            priv_is_illegal = 1'b1;//report illegal in u mode 
         end
     end
-    else if ((i_csr_priv_lvl[1:0] == 2'b01) & vgein_legal)begin //vs mode, and vgein is in the implemented range.
-        
-        intp_file_sel   = S_FILE + i_csr_vgein[5:0];
-        priv_is_illegal = 1'b0; 
-        csr_claim       = i_csr_claim[2];
-    end
-    else begin
+    else begin //invalid not care
         intp_file_sel   = {INTP_FILE_WIDTH{1'b0}};
-        priv_is_illegal = 1'b1;//report illegal in u mode 
-        csr_claim       = 1'b0;
+        priv_is_illegal = 1'b0;
     end
 end
 //start:code about eip gen
 assign setipnum_h                    = (setipnum >>XLEN_WIDTH); // indicate the arrange in eips array.
 assign setipnum_l                    = setipnum[SETIPNUM_L_WIDTH-1:0];
-assign curr_xtopei_h                 = xtopei[intp_file_sel][NR_SRC_WIDTH-1:0]>>XLEN_WIDTH;   // bit[10:0] is msi priority,and id. xtopei/32,or xtopei/64,max is 7bits. 11:5
-assign curr_xtopei_l[XLEN_WIDTH-1:0] = xtopei[intp_file_sel][XLEN_WIDTH-1:0];   // xtopei%32,or xtopei%64
-assign curr_xtopei_h_add             = curr_xtopei_h + intp_file_sel*NR_REG;
+assign claim_sel                     = i_csr_claim[0] ? {INTP_FILE_WIDTH{1'b0}} : (
+                                       i_csr_claim[1] ? {{(INTP_FILE_WIDTH-1){1'b0}},{1'b1}} : (
+                                       (i_csr_vgein +1))) ;
+assign curr_xtopei_h                 = xtopei[claim_sel][NR_SRC_WIDTH-1:0]>>XLEN_WIDTH;   // bit[10:0] is msi priority,and id. xtopei/32,or xtopei/64,max is 7bits. 11:5
+assign curr_xtopei_l[XLEN_WIDTH-1:0] = xtopei[claim_sel][XLEN_WIDTH-1:0];   // xtopei%32,or xtopei%64
+assign curr_xtopei_h_add             = curr_xtopei_h + claim_sel*NR_REG;
 assign curr_xtopei_hadd_cut          = curr_xtopei_h_add[RSLT_ADD_2WIDTH-1:0];
 integer i,k;
 //for sim
@@ -170,7 +175,7 @@ begin
         end
     end
     /** If a priv lvl is claiming the intp, unpend the intp */
-    else if (csr_claim)
+    else if (|i_csr_claim)
         eip_final[curr_xtopei_hadd_cut][curr_xtopei_l] <= 1'b0;
     else begin
     /** For each priv lvl evaluate if some device triggered an interrupt, and make this interrupt pending */

@@ -112,6 +112,7 @@ u_imsic_csr_gate
 .hart_id                      (hart_id[NR_HARTS_WIDTH-1:0]                              ),
 .i_msi_info                   (i_msi_info[MSI_INFO_WIDTH-1:0]                           ),
 .i_msi_info_vld               (i_msi_info_vld                                           ),
+.i_csr_addr_vld               (i_csr_addr_vld                                 ),
 .i_csr_priv_lvl               (i_csr_priv_lvl[1:0]                                      ),
 .i_csr_v                      (i_csr_v                                                  ),
 .i_csr_vgein                  (i_csr_vgein[5:0]                                         ),
