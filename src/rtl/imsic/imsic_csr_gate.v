@@ -66,7 +66,7 @@ wire       [SETIPNUM_H_WIDTH-1:0]           curr_xtopei_h       ;
 wire       [XLEN_WIDTH-1:0]                 curr_xtopei_l       ;
 wire       [RSLT_ADD_WIDTH-1:0]             curr_xtopei_h_add   ;
 wire       [RSLT_ADD_2WIDTH-1:0]            curr_xtopei_hadd_cut;
-reg                                         csr_claim	        ; 
+reg        [NR_INTP_FILES-1:0]              csr_claim	        ; 
 
 //start:code about synchronize of setipnum_vld
 cmip_dff_sync #(.N(N)) u_cmip_dff_sync
@@ -154,6 +154,13 @@ assign curr_xtopei_h                 = xtopei[claim_sel][NR_SRC_WIDTH-1:0]>>XLEN
 assign curr_xtopei_l[XLEN_WIDTH-1:0] = xtopei[claim_sel][XLEN_WIDTH-1:0];   // xtopei%32,or xtopei%64
 assign curr_xtopei_h_add             = curr_xtopei_h + claim_sel*NR_REG;
 assign curr_xtopei_hadd_cut          = curr_xtopei_h_add[RSLT_ADD_2WIDTH-1:0];
+
+always @(*) begin
+    if (|i_csr_claim)
+        csr_claim[claim_sel]   = 1'b1; 
+    else
+        csr_claim              = {NR_INTP_FILES{1'b0}}; 
+end
 integer i,k;
 //for sim
 /*
@@ -174,13 +181,13 @@ begin
             eip_final[i] <= {XLEN{1'b0}};
         end
     end
-    /** If a priv lvl is claiming the intp, unpend the intp */
-    else if (|i_csr_claim)
-        eip_final[curr_xtopei_hadd_cut][curr_xtopei_l] <= 1'b0;
     else begin
     /** For each priv lvl evaluate if some device triggered an interrupt, and make this interrupt pending */
         for (i = 0; i < NR_INTP_FILES; i++) begin
-            if (setipnum_vld[i] & (|setipnum) & (setipnum< NR_SRC)) begin // rising edge of setipnum_vld.
+        /** If a priv lvl is claiming the intp, unpend the intp */
+            if (csr_claim[i])
+                eip_final[curr_xtopei_hadd_cut][curr_xtopei_l] <= 1'b0;
+            else if (setipnum_vld[i] & (|setipnum) & (setipnum< NR_SRC)) begin // rising edge of setipnum_vld.
                 eip_final[setipnum_h+(i*NR_REG)][setipnum_l] <= 1'b1;   //setipnum[4:0] is the bit location in one eip reg.
             end 
             else begin
