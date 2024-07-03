@@ -23,7 +23,7 @@ input                                       rstn	                               
 input       [NR_HARTS_WIDTH-1:0]            hart_id                                 ,// current hart id,start from 0.
 input       [MSI_INFO_WIDTH-1:0]            i_msi_info                              ,
 input                                       i_msi_info_vld	                        ,// m,s,5vs,4harts.0-3:hart0-hart3 m file. 4-9:hart0 s+vs file.
-input       [11:0]                          i_csr_addr_vld	                        ,
+input                                       i_csr_addr_vld	                        ,
 input       [1:0]                           i_csr_priv_lvl	                        ,
 input                                       i_csr_v	                                ,
 input       [5:0]                           i_csr_vgein	                            ,
