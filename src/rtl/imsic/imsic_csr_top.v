@@ -76,8 +76,6 @@ u_imsic_csr_reg
 .csr_rd                        (i_csr_addr_vld                                 ),
 .intp_file_sel                 (intp_file_sel[INTP_FILE_WIDTH-1:0]             ),
 .priv_is_illegal               (priv_is_illegal                                ),
-.i_csr_vgein                   (i_csr_vgein[5:0]                               ),
-.vgein_legal                   (vgein_legal                                    ),
 .eip_final                     (eip_final                                      ),
 .eip_sw                        (eip_sw                                         ),
 .eip_sw_wr                     (eip_sw_wr                                      ),

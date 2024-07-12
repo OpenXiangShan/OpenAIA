@@ -156,6 +156,7 @@ assign curr_xtopei_h_add             = curr_xtopei_h + claim_sel*NR_REG;
 assign curr_xtopei_hadd_cut          = curr_xtopei_h_add[RSLT_ADD_2WIDTH-1:0];
 
 always @(*) begin
+    csr_claim              = {NR_INTP_FILES{1'b0}}; 
     if (|i_csr_claim)
         csr_claim[claim_sel]   = 1'b1; 
     else

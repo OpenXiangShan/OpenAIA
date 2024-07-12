@@ -19,14 +19,12 @@ input                                               csr_rd                      
 input       [INTP_FILE_WIDTH-1:0]                   intp_file_sel                           ,
 input                                               priv_is_illegal                         ,
 input       [XLEN-1:0]                              eip_final[((NR_INTP_FILES*NR_REG)-1):0] ,
-input                                               vgein_legal                             ,
 output reg  [XLEN-1:0]                              eip_sw[((NR_INTP_FILES*NR_REG)-1):0]    ,
 output reg  [((NR_INTP_FILES*NR_REG)-1) :0 ]        eip_sw_wr                               ,
 output reg  [31:0]                                  xtopei[NR_INTP_FILES-1:0]               ,
 //top
 input                                               i_csr_wdata_vld                         ,    
 input                                               i_csr_v	                                ,
-input       [5:0]                                   i_csr_vgein	                            ,// the value must be in the range 0~NR_INTP_FILES -2.
 input       [XLEN-1:0]                              i_csr_wdata	                            ,
 input       [1:0]                                   i_csr_wdata_op ,  //csr type. 01:csrrw,10:csrrs,11:csrrc  
 output reg                                          o_csr_rdata_vld	                        ,
