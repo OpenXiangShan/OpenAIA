@@ -113,9 +113,9 @@ begin
     if (~rstn)begin 
         eidelivery          <=  {NR_INTP_FILES{1'b0}}; 
         csr_wr_illegal      <=  1'b0; 
-        for (s = 0; s < NR_INTP_FILES; s=s+1) begin
+        for (s = 0; s < NR_INTP_FILES; s++) begin
             eithreshold[s]  <=  {(XLEN){1'b0}}; 
-            for(t=0; t< NR_REG;t=t+1) begin
+            for(t=0; t< NR_REG;t++) begin
                 eip_sw[s*NR_REG +t]     <=  {XLEN{1'b0}}; 
                 eie[s*NR_REG+t]         <=  {XLEN{1'b0}}; 
                 eip_sw_wr[s*NR_REG+t]   <=  1'b0; 
@@ -265,11 +265,11 @@ i - reg number,
 j - arrangement of interrupt number in i,
 k*NR_REG - select the current interrupt file */
 always @(*)begin
-        for (k = 0; k < NR_INTP_FILES; k=k+1) begin
+        for (k = 0; k < NR_INTP_FILES; k++) begin
             xtopei_out[k] = 32'h0; 
             irq_out[k]= 1'b0; 
-            for (i = NR_REG-1; i >= 0; i=i-1) begin
-                for (j = XLEN-1; j >= 0; j=j-1) begin 
+            for (i = NR_REG-1; i >= 0; i--) begin
+                for (j = XLEN-1; j >= 0; j--) begin 
                     irq_id=XLEN*i+j;
                     if ((eie[(k*NR_REG)+i][j] & eip_final[(k*NR_REG)+i][j]) & 
                         ((eithreshold[k] == 0) | (irq_id < eithreshold[k]))) begin
@@ -284,13 +284,13 @@ end
 always @(posedge clk or negedge rstn)
 begin
     if (~rstn) begin
-        for (n = 0; n < NR_INTP_FILES; n=n+1) begin
+        for (n = 0; n < NR_INTP_FILES; n++) begin
             xtopei[n]  <= 32'd0;
             o_irq[n]   <= 1'b0; 
         end
     end
     else begin
-        for (n = 0; n < NR_INTP_FILES; n=n+1) begin
+        for (n = 0; n < NR_INTP_FILES; n++) begin
             xtopei[n] <= xtopei_out[n];
             o_irq[n]  <= irq_out[n] ; //select the vgein file for vs.
         end

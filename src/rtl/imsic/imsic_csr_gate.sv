@@ -178,13 +178,13 @@ assign eip_4 = eip_final[4];*/
 always @(posedge clk or negedge rstn)
 begin
     if (~rstn) begin
-        for (i = 0; i < NR_INTP_FILES*NR_REG; i=i+1) begin
+        for (i = 0; i < NR_INTP_FILES*NR_REG; i++) begin
             eip_final[i] <= {XLEN{1'b0}};
         end
     end
     else begin
     /** For each priv lvl evaluate if some device triggered an interrupt, and make this interrupt pending */
-        for (i = 0; i < NR_INTP_FILES; i=i+1) begin
+        for (i = 0; i < NR_INTP_FILES; i++) begin
         /** If a priv lvl is claiming the intp, unpend the intp */
             if (csr_claim[i])
                 eip_final[curr_xtopei_hadd_cut][curr_xtopei_l] <= 1'b0;
@@ -192,7 +192,7 @@ begin
                 eip_final[setipnum_h+(i*NR_REG)][setipnum_l] <= 1'b1;   //setipnum[4:0] is the bit location in one eip reg.
             end 
             else begin
-                for (k = 0; k < NR_REG; k=k+1) begin
+                for (k = 0; k < NR_REG; k++) begin
                     if (eip_sw_wr[i*NR_REG +k] == 1'b1)begin
                         eip_final[i*NR_REG +k] <= eip_sw[i*NR_REG+k];
                     end
