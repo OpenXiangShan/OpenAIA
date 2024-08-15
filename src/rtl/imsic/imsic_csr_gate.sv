@@ -48,14 +48,15 @@ localparam SETIPNUM_L_WIDTH                 = (NR_SRC_WIDTH > XLEN_WIDTH) ? XLEN
 localparam RSLT_ADD_1WIDTH                  = SETIPNUM_H_WIDTH; 
 localparam RSLT_ADD_2WIDTH                  = INTP_FILE_WIDTH+NR_REG_WIDTH;
 localparam RSLT_ADD_WIDTH                   = (RSLT_ADD_1WIDTH > RSLT_ADD_2WIDTH) ? (RSLT_ADD_1WIDTH +1) : (RSLT_ADD_2WIDTH+1);//get the max width.
-localparam N                                = EID_VLD_DLY +3; //3: cycles needed to sync.
+//localparam N                                = EID_VLD_DLY +3; //3: cycles needed to sync.
 
 reg         [MSI_INFO_WIDTH-1:0]            msi_info            ;
-wire                                        msi_vld_sync        ;  // synchronize with the current hart cpu clk.
+reg                                         msi_info_vld        ;
+//wire                                        msi_vld_sync        ;  // synchronize with the current hart cpu clk.
 wire        [NR_HARTS_WIDTH-1:0]            hart_id_mux         ;  // current hart id,0 when NR_HARTS=1
-reg                                         msi_vld_sync_1dly   ;  // synchronize with the current hart cpu clk.
-wire                                        msi_vld_sync_neg    ;  // synchronize with the current hart cpu clk.
-reg                                         msi_vld_sync_neg_1dly; // synchronize with the current hart cpu clk.
+//reg                                         msi_vld_sync_1dly   ;  // synchronize with the current hart cpu clk.
+//wire                                        msi_vld_sync_neg    ;  // synchronize with the current hart cpu clk.
+//reg                                         msi_vld_sync_neg_1dly; // synchronize with the current hart cpu clk.
 reg        [NR_INTP_FILES-1:0]              setipnum_vld        ;  // one cycle after msi_vld_sync 
 wire       [NR_SRC_WIDTH-1:0]               setipnum            ;
 wire       [INTP_FILE_WIDTH-1:0]            intp_file_curr      ;  
@@ -68,6 +69,8 @@ wire       [RSLT_ADD_WIDTH-1:0]             curr_xtopei_h_add   ;
 wire       [RSLT_ADD_2WIDTH-1:0]            curr_xtopei_hadd_cut;
 reg        [NR_INTP_FILES-1:0]              csr_claim	        ; 
 
+/* remove the async process from imsic_csr_gate to xstile_wrap, and delay one more cycle than before 0815.
+//=== start=======
 //start:code about synchronize of setipnum_vld
 cmip_dff_sync #(.N(N)) u_cmip_dff_sync
 (.clk       (clk                  ),
@@ -99,12 +102,29 @@ begin
     else if (msi_vld_sync_neg)
         msi_info                     <= i_msi_info ;
 end
+*/
+always @(posedge clk or negedge rstn)
+begin
+    if (~rstn)
+        msi_info[MSI_INFO_WIDTH-1:0] <= {MSI_INFO_WIDTH{1'b0}};
+    else if (i_msi_info_vld)
+        msi_info                     <= i_msi_info ;
+    else;
+end
+always @(posedge clk or negedge rstn)
+begin
+    if (~rstn)
+        msi_info_vld        <= 1'b0;
+    else
+        msi_info_vld        <= i_msi_info_vld ;
+end
+//=== end=======
 assign intp_file_curr   = msi_info[(NR_SRC_WIDTH + INTP_FILE_WIDTH-1):NR_SRC_WIDTH];
 assign hart_id_mux      = (NR_HARTS == 1) ? {NR_HARTS_WIDTH{1'b0}} : hart_id;
 always @(*)
 begin
     setipnum_vld                 = {NR_INTP_FILES{1'b0}};
-    if (msi_vld_sync_neg_1dly & (msi_info[(MSI_INFO_WIDTH-1):(MSI_INFO_WIDTH-NR_HARTS_WIDTH)] == hart_id_mux)) 
+    if (msi_info_vld & (msi_info[(MSI_INFO_WIDTH-1):(MSI_INFO_WIDTH-NR_HARTS_WIDTH)] == hart_id_mux)) 
         setipnum_vld[intp_file_curr] = 1'b1;
     else
         setipnum_vld             = {NR_INTP_FILES{1'b0}};
