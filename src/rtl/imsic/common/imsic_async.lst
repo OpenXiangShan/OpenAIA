@@ -1,0 +1,2 @@
+$rtl_root_path_/imsic/common/cmip_dff_sync.sv
+$rtl_root_path_/imsic/common/imsic_async_proc.sv
