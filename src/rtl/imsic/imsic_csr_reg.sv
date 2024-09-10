@@ -172,7 +172,7 @@ begin
                     else
                         csr_wr_illegal <= 1'b1;                                       
                 end
-                default: csr_wr_illegal <= 1'b1;
+                default: csr_wr_illegal <= 1'b0;
             endcase
         end
     end
@@ -238,7 +238,10 @@ begin
                     else
                         csr_rd_illegal <= 1'b1;                                       
                 end
-                default: csr_rd_illegal<= 1'b1;
+                default: begin 
+                    csr_rd_illegal<= 1'b0;
+                    o_csr_rdata   <= {XLEN{1'b0}};
+                end
             endcase
         end
     end
