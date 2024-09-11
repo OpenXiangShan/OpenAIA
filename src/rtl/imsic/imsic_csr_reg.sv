@@ -157,8 +157,10 @@ begin
                             eip_sw_wr[curr_intf_addr] <= 1'b1;
                         end  
                     end
-                    else
+                    else if((XLEN == 64) && (csr_addr[0] == 1'b1))
                         csr_wr_illegal <= 1'b1;                                       
+                    else 
+                        csr_wr_illegal <= 1'b0;                                       
                 end
                 12'b0000_11??_????:begin
                     if(csr_addr[5:0]< MUX_NR_REG) begin
@@ -169,8 +171,10 @@ begin
                         else 
                             eie[curr_intf_addr] <= csr_wdata_mux[XLEN-1:0];
                     end
-                    else
+                    else if((XLEN == 64) && (csr_addr[0] == 1'b1))
                         csr_wr_illegal <= 1'b1;                                       
+                    else
+                        csr_wr_illegal <= 1'b0;                                       
                 end
                 default: csr_wr_illegal <= 1'b0;
             endcase
@@ -223,8 +227,14 @@ begin
                         else 
                             csr_rd_illegal <=  1'b1;                                       
                     end
-                    else
-                        csr_rd_illegal <= 1'b1;                                       
+                    else begin
+                        if((XLEN == 64) && (csr_addr[0] == 1'b1))
+                            csr_rd_illegal <=  1'b1;                                       
+                        else begin
+                            csr_rd_illegal <= 1'b0;                                       
+                            o_csr_rdata   <= {XLEN{1'b0}};
+                        end
+                    end
                 end
                 12'b0000_11??_????:begin
                     if(csr_addr[5:0]< MUX_NR_REG) begin
@@ -235,8 +245,14 @@ begin
                         else 
                             csr_rd_illegal <=  1'b1;                                       
                     end
-                    else
-                        csr_rd_illegal <= 1'b1;                                       
+                    else begin
+                        if((XLEN == 64) && (csr_addr[0] == 1'b1))
+                            csr_rd_illegal <=  1'b1;                                       
+                        else begin
+                            csr_rd_illegal <= 1'b0;                                       
+                            o_csr_rdata   <= {XLEN{1'b0}};
+                        end
+                    end
                 end
                 default: begin 
                     csr_rd_illegal<= 1'b0;
